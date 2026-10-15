@@ -53,15 +53,47 @@
                          Background="{DynamicResource InputBackground}" Foreground="{DynamicResource TextBrush}"
                          BorderBrush="{DynamicResource BorderStrongBrush}"
                          VerticalContentAlignment="Center" Padding="6,4"/>
-                <Button Content="🔍 Find Links" Click="FindLinks_Click" Margin="2" Padding="8,4"/>
-                <Button Content="▶ Scan" Click="Scan_Click" Margin="2" Padding="8,4" x:Name="ScanBtn"/>
-                <Button Content="⏹ Stop" Click="Stop_Click" Margin="2" Padding="8,4" x:Name="StopBtn" IsEnabled="False"/>
+                <Button Click="FindLinks_Click" Margin="2" Padding="8,4" ToolTip="Find share links on the pasted page">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="Find Links" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Click="Scan_Click" Margin="2" Padding="8,4" x:Name="ScanBtn" ToolTip="Crawl older blog posts">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="Scan" VerticalAlignment="Center" x:Name="ScanBtnLabel"/>
+                    </StackPanel>
+                </Button>
+                <Button Click="Stop_Click" Margin="2" Padding="8,4" x:Name="StopBtn" IsEnabled="False" ToolTip="Stop scan">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE71A;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="Stop" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
                 <Separator/>
-                <Button Content="⬇ Download All" Click="DownloadAll_Click" Margin="2" Padding="8,4"/>
-                <Button Content="⏸ Pause All" Click="PauseAll_Click" Margin="2" Padding="8,4"/>
-                <Button Content="🗑" Click="DeleteSelected_Click" Margin="2" Padding="8,4"/>
+                <Button Click="DownloadAll_Click" Margin="2" Padding="8,4" ToolTip="Download all entries">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="Download All" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Click="PauseAll_Click" Margin="2" Padding="8,4" ToolTip="Pause all downloads">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="Pause All" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Click="DeleteSelected_Click" Margin="2" Padding="8,4" ToolTip="Remove selected">
+                    <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center"/>
+                </Button>
                 <Separator/>
-                <Button Content="🌙 Dark" Click="ThemeToggle_Click" Margin="2" Padding="8,4" x:Name="ThemeBtn"/>
+                <Button Click="ThemeToggle_Click" Margin="2" Padding="8,4" x:Name="ThemeBtn" ToolTip="Toggle dark mode">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE708;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="Dark" VerticalAlignment="Center" x:Name="ThemeBtnLabel"/>
+                    </StackPanel>
+                </Button>
             </ToolBar>
         </ToolBarTray>
 
@@ -95,7 +127,8 @@
         </StatusBar>
 
         <!-- Main table -->
-        <DataGrid x:Name="Grid" AutoGenerateColumns="False" CanUserAddRows="False"
+        <Grid>
+            <DataGrid x:Name="Grid" AutoGenerateColumns="False" CanUserAddRows="False"
                   SelectionMode="Single" GridLinesVisibility="None" HeadersVisibility="Column"
                   Background="{DynamicResource WindowBackground}" Foreground="{DynamicResource TextBrush}"
                   BorderThickness="0" RowBackground="Transparent" AlternatingRowBackground="Transparent"
@@ -281,8 +314,9 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal">
-                                <Button Content="⬇" ToolTip="Download" Click="RowDownload_Click"
+                                <Button ToolTip="Download" Click="RowDownload_Click"
                                         Margin="0,0,4,0" Padding="6,2">
+                                    <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets"/>
                                     <Button.Style>
                                         <Style TargetType="Button">
                                             <Style.Triggers>
@@ -293,8 +327,9 @@
                                         </Style>
                                     </Button.Style>
                                 </Button>
-                                <Button Content="▶" ToolTip="Resume" Click="RowDownload_Click"
+                                <Button ToolTip="Resume" Click="RowDownload_Click"
                                         Margin="0,0,4,0" Padding="6,2">
+                                    <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets"/>
                                     <Button.Style>
                                         <Style TargetType="Button">
                                             <Setter Property="Visibility" Value="Collapsed"/>
@@ -309,8 +344,9 @@
                                         </Style>
                                     </Button.Style>
                                 </Button>
-                                <Button Content="⏸" ToolTip="Pause" Click="RowPause_Click"
+                                <Button ToolTip="Pause" Click="RowPause_Click"
                                         Margin="0,0,4,0" Padding="6,2">
+                                    <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets"/>
                                     <Button.Style>
                                         <Style TargetType="Button">
                                             <Setter Property="Visibility" Value="Collapsed"/>
@@ -329,5 +365,19 @@
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
+
+            <!-- Empty state -->
+            <StackPanel x:Name="EmptyState" VerticalAlignment="Center" HorizontalAlignment="Center"
+                        Margin="0,0,0,40">
+                <Image Source="Assets/app.ico" Width="88" Height="88" Margin="0,0,0,20"
+                       RenderOptions.BitmapScalingMode="HighQuality" Opacity="0.92"/>
+                <TextBlock Text="No downloads yet" FontSize="17" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" Foreground="{DynamicResource TextBrush}"/>
+                <TextBlock Text="Paste a page URL above and press Find Links — or Scan a blog for older posts."
+                           FontSize="13" Margin="0,8,0,0" HorizontalAlignment="Center"
+                           Foreground="{DynamicResource SubtleTextBrush}" TextWrapping="Wrap"
+                           MaxWidth="420" TextAlignment="Center"/>
+            </StackPanel>
+        </Grid>
     </DockPanel>
 </Window>
