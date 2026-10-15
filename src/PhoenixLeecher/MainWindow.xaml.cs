@@ -36,7 +36,7 @@ public partial class MainWindow : Window
         _syncTimer.Tick += (_, _) => SyncRows();
         _syncTimer.Start();
 
-        StatusFolder.Text = "📁 " + DownloadEngine.DownloadRoot;
+        StatusFolder.Text = DownloadEngine.DownloadRoot;
         UpdateCounts();
     }
 
@@ -67,6 +67,7 @@ public partial class MainWindow : Window
         double totalSpeed = _rows.Where(e => e.Status == EntryStatus.Downloading).Sum(e => e.SpeedBps);
         StatusCounts.Text = $"Complete downloads {done} of {_rows.Count}";
         StatusSpeed.Text = totalSpeed > 0 ? $"Current speed: {FormatSpeed(totalSpeed)}" : "";
+        EmptyState.Visibility = _rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static string FormatSpeed(double bps)
@@ -98,7 +99,7 @@ public partial class MainWindow : Window
         ScanBar.Maximum = p.Target;
         ScanBar.Value = p.LinksFound;
         ScanText.Text = p.Running
-            ? $"🔍 Scanning older posts… {p.LinksFound}/{p.Target} links" +
+            ? $"Scanning older posts… {p.LinksFound}/{p.Target} links" +
               (p.TotalPosts > 0 ? $" · post {p.PostsDone}/{p.TotalPosts}" : $" · {p.PostsDone} posts")
             : $"Scan {p.Note}: {p.LinksFound}/{p.Target} links";
         if (!p.Running)
@@ -109,11 +110,11 @@ public partial class MainWindow : Window
             if (p.LinksFound >= p.Target || p.Note.Contains("exhaust"))
             {
                 _scanner.ClearState(UrlBox.Text.Trim());
-                ScanBtn.Content = "▶ Scan";
+                ScanBtnLabel.Text = "Scan";
             }
             else if (LinkScanner.IsBlogspot(UrlBox.Text.Trim()))
             {
-                ScanBtn.Content = $"▶ Resume scan ({p.LinksFound}/{p.Target})";
+                ScanBtnLabel.Text = $"Resume scan ({p.LinksFound}/{p.Target})";
             }
         }
     }
@@ -295,13 +296,13 @@ public partial class MainWindow : Window
     private void ApplyLight()
     {
         App.ApplyTheme("Light");
-        ThemeBtn.Content = "🌙 Dark";
+        ThemeBtnLabel.Text = "Dark";
         MenuLight.IsChecked = true; MenuDark.IsChecked = false;
     }
     private void ApplyDark()
     {
         App.ApplyTheme("Dark");
-        ThemeBtn.Content = "☀️ Light";
+        ThemeBtnLabel.Text = "Light";
         MenuLight.IsChecked = false; MenuDark.IsChecked = true;
     }
 
@@ -323,8 +324,7 @@ public partial class MainWindow : Window
     }
 
     private void About_Click(object sender, RoutedEventArgs e) =>
-        MessageBox.Show("Phoenix Leecher 1.0.0\n\nPaste a page URL -> auto-find pCloud/MediaFire links.\nScan crawls older posts (50 links, resumable).\n\nUnsigned build: Windows SmartScreen \"Unknown publisher\" is expected.",
-            "About", MessageBoxButton.OK, MessageBoxImage.Information);
+        new AboutWindow { Owner = this }.ShowDialog();
 
     private void Exit_Click(object sender, RoutedEventArgs e) => Close();
 
