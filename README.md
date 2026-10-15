@@ -36,9 +36,10 @@ dotnet publish src/PhoenixLeecher/PhoenixLeecher.csproj -c Release -r win-x64 \
   -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 ```
 
-Pushing a `v*` tag runs `.github/workflows/build.yml` and attaches
-`PhoenixLeecher.exe` to the GitHub Release. The binary is unsigned; expect a
-Windows SmartScreen "Unknown publisher" prompt.
+Pushing a `v*` tag runs `.github/workflows/build.yml`, which compiles the app,
+builds a Windows installer with Inno Setup, and attaches
+`PhoenixLeecher-Setup-<version>.exe` to the GitHub Release. The installer is
+unsigned; expect a Windows SmartScreen "Unknown publisher" prompt.
 
 ## Notes
 
