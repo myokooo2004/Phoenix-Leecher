@@ -55,11 +55,11 @@ public sealed class DownloadEngine
 
     public async Task DownloadAsync(LeecherEntry entry, IProgress<EntryTick> progress, CancellationToken ct)
     {
-        Report(EntryStatus.Downloading, "Starting…");
         var sw = Stopwatch.StartNew();
         var elapsedBase = entry.Elapsed;
         long totalDownloaded = entry.DownloadedBytes;
         long grandTotal = Math.Max(1, entry.TotalSize);
+        Report(EntryStatus.Downloading, "Starting…");
 
         string targetDir = DownloadRoot;
         if (entry.IsFolder) targetDir = Path.Combine(targetDir, Sanitize(entry.DisplayName));
