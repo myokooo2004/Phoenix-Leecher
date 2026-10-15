@@ -1,42 +1,48 @@
 # Phoenix Leecher
 
-Windows download manager for pCloud + MediaFire share links (V1).
+Windows download manager for pCloud and MediaFire share links. Paste a page URL,
+get a download list. No browser extensions, no accounts.
 
-## What it does
+## Features
 
-1. Paste a web page URL → pCloud / MediaFire links are auto-found immediately.
-2. **Scan** crawls older Blogspot posts (Blogger feed API) until **50 share-links**
-   found or posts exhausted. **Stop** halts gracefully; **Resume** continues from the
-   saved feed position — scan state is persisted to disk and survives app restart.
-3. Each folder = **one entry** (inside-name from the host API, never the URL slug).
-   Same inside-name on both hosts → one entry, **pCloud primary + MediaFire backup**.
-   If pCloud breaks, download auto-falls-back to MediaFire.
-4. Per-item Download / Pause / Resume, Download All, Pause All / Resume All.
-5. Dead/expired direct links are auto re-resolved; downloads resume via HTTP Range.
-6. Password-protected links: inline unlock, session-only (never stored).
-7. Myanmar filenames: UTF-8 everywhere, heuristic Zawgyi→Unicode for display/save/dedup.
-8. Light mode default + dark mode toggle. System font (Segoe UI), no bundled fonts.
+- **Link discovery** — paste any page URL; `*.pcloud.link` and `mediafire.com` links
+  are extracted automatically.
+- **Blogspot crawl** — `Scan` walks older posts via the Blogger feed API until
+  50 share-links are found or posts are exhausted. `Stop` halts gracefully;
+  `Resume` continues from the persisted feed position, even after app restart.
+- **Dedup** — entries are keyed by the host-resolved inside name (never the URL slug),
+  normalized (NFC, case-insensitive, Zawgyi→Unicode). Same name on both hosts →
+  one entry, pCloud primary, MediaFire kept as automatic fallback.
+- **Resilient downloads** — HTTP Range resume (`.part` files), automatic re-resolve
+  of expired direct URLs, pCloud→MediaFire failover mid-download.
+- **Folders as single entries** — a shared folder downloads into
+  `Downloads\PhoenixLeecher\<folder>\`.
+- Password-protected links unlock inline; passwords are session-only, never stored.
+- Light/dark themes. System font, no bundled assets.
 
-## Resource budgets
+## Resource profile
 
-- **CPU**: single connection per file (no multi-segment), async I/O, max 3 concurrent
-  file downloads (changeable in Options), UI updates throttled to 4/sec.
-- **RAM**: stream-to-disk (32 KB buffer, never whole files in RAM), metadata-only
-  entry list, DataGrid virtualization. Target < 150 MB steady state.
+Single connection per file (no multi-segment), async I/O, max 3 concurrent file
+downloads (configurable), 32 KB stream buffers, throttled UI updates.
+Typical: <150 MB RAM, low single-digit % CPU.
 
 ## Build
 
-CI (`build.yml`) publishes a single-file `PhoenixLeecher.exe` on `windows-latest`
-on tag push (`v*`) or manual dispatch, and attaches it to a GitHub Release.
+Requires .NET 8 SDK. CI builds on `windows-latest`:
 
-> Unsigned exe → Windows SmartScreen "Unknown publisher" warning is expected.
+```
+dotnet publish src/PhoenixLeecher/PhoenixLeecher.csproj -c Release -r win-x64 \
+  --self-contained true -p:PublishSingleFile=true \
+  -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+```
 
-## Verified live (2026-10-15, before implementation)
+Pushing a `v*` tag runs `.github/workflows/build.yml` and attaches
+`PhoenixLeecher.exe` to the GitHub Release. The binary is unsigned; expect a
+Windows SmartScreen "Unknown publisher" prompt.
 
-- pCloud `showpublink` → folder/file metadata; `getpublinkdownload` → direct URL (Range 206).
-- MediaFire `folder/get_info` + `folder/get_content` (anonymous) → name/files/quickkeys.
-- MediaFire `/file/{quickkey}/x` → 302 → direct URL (Range 206).
-- Blogger feed API: 7057 posts, `start-index` pagination works.
-- Prototype scan: 50 links / 25 posts → 29 entries, 9 deduped pairs — all passed.
-- pCloud API intermittently returns empty replies (~24%) → 6-attempt exponential
-  backoff is mandatory (verified working).
+## Notes
+
+- pCloud's API intermittently returns empty responses; all API calls use
+  6-attempt exponential backoff.
+- MediaFire folder APIs (`get_info`, `get_content`) work anonymously; file
+  downloads follow the `/file/{quickkey}` 302 redirect, which supports ranges.
