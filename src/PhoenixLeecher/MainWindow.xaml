@@ -4,6 +4,7 @@
         xmlns:local="clr-namespace:PhoenixLeecher"
         xmlns:models="clr-namespace:PhoenixLeecher.Models"
         Title="Phoenix Leecher" Height="620" Width="1040"
+        Icon="Assets/app.ico"
         Background="{DynamicResource WindowBackground}"
         Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI">
