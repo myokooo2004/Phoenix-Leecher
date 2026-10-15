@@ -206,7 +206,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding SpeedBps, Converter={StaticResource Speed}}"
-                                       HorizontalAlignment="Right" FontVariantNumeric="Tabular"/>
+                                       HorizontalAlignment="Right" Typography.NumeralAlignment="Tabular"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -215,7 +215,7 @@
                 <DataGridTemplateColumn Header="Size" Width="0.9*">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock HorizontalAlignment="Right" FontVariantNumeric="Tabular"
+                            <TextBlock HorizontalAlignment="Right" Typography.NumeralAlignment="Tabular"
                                        Foreground="{DynamicResource SubtleTextBrush}">
                                 <TextBlock.Text>
                                     <MultiBinding Converter="{StaticResource SizePair}">
@@ -233,7 +233,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Elapsed, Converter={StaticResource Elapsed}}"
-                                       HorizontalAlignment="Right" FontVariantNumeric="Tabular"
+                                       HorizontalAlignment="Right" Typography.NumeralAlignment="Tabular"
                                        Foreground="{DynamicResource FaintTextBrush}"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
