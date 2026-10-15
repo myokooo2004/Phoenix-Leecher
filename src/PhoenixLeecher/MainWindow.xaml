@@ -1,0 +1,332 @@
+<Window x:Class="PhoenixLeecher.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:PhoenixLeecher"
+        xmlns:models="clr-namespace:PhoenixLeecher.Models"
+        Title="Phoenix Leecher" Height="620" Width="1040"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource TextBrush}"
+        FontFamily="Segoe UI">
+    <Window.Resources>
+        <local:BytesConverter x:Key="Bytes"/>
+        <local:SpeedConverter x:Key="Speed"/>
+        <local:ElapsedConverter x:Key="Elapsed"/>
+        <local:StatusToBarBrushConverter x:Key="BarBrush"/>
+        <local:SizePairConverter x:Key="SizePair"/>
+        <BooleanToVisibilityConverter x:Key="BoolVis"/>
+    </Window.Resources>
+    <DockPanel>
+        <!-- Menu -->
+        <Menu DockPanel.Dock="Top" Background="{DynamicResource PanelBackground}" Foreground="{DynamicResource TextBrush}">
+            <MenuItem Header="File">
+                <MenuItem Header="Open download folder" Click="OpenFolder_Click"/>
+                <Separator/>
+                <MenuItem Header="Exit" Click="Exit_Click"/>
+            </MenuItem>
+            <MenuItem Header="Downloads">
+                <MenuItem Header="Download all" Click="DownloadAll_Click"/>
+                <MenuItem Header="Pause all" Click="PauseAll_Click"/>
+                <MenuItem Header="Resume all" Click="ResumeAll_Click"/>
+            </MenuItem>
+            <MenuItem Header="Options">
+                <MenuItem Header="Max concurrent files">
+                    <MenuItem Header="1" Click="Concurrency_Click" Tag="1"/>
+                    <MenuItem Header="2" Click="Concurrency_Click" Tag="2"/>
+                    <MenuItem Header="3" Click="Concurrency_Click" Tag="3" IsChecked="True"/>
+                    <MenuItem Header="5" Click="Concurrency_Click" Tag="5"/>
+                </MenuItem>
+            </MenuItem>
+            <MenuItem Header="View">
+                <MenuItem Header="Light mode" Click="ThemeLight_Click" x:Name="MenuLight" IsChecked="True"/>
+                <MenuItem Header="Dark mode" Click="ThemeDark_Click" x:Name="MenuDark"/>
+            </MenuItem>
+            <MenuItem Header="Help">
+                <MenuItem Header="About Phoenix Leecher" Click="About_Click"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- Toolbar -->
+        <ToolBarTray DockPanel.Dock="Top">
+            <ToolBar Background="{DynamicResource PanelBackground}">
+                <TextBox x:Name="UrlBox" Width="380" Margin="4"
+                         Background="{DynamicResource InputBackground}" Foreground="{DynamicResource TextBrush}"
+                         BorderBrush="{DynamicResource BorderStrongBrush}"
+                         VerticalContentAlignment="Center" Padding="6,4"/>
+                <Button Content="🔍 Find Links" Click="FindLinks_Click" Margin="2" Padding="8,4"/>
+                <Button Content="▶ Scan" Click="Scan_Click" Margin="2" Padding="8,4" x:Name="ScanBtn"/>
+                <Button Content="⏹ Stop" Click="Stop_Click" Margin="2" Padding="8,4" x:Name="StopBtn" IsEnabled="False"/>
+                <Separator/>
+                <Button Content="⬇ Download All" Click="DownloadAll_Click" Margin="2" Padding="8,4"/>
+                <Button Content="⏸ Pause All" Click="PauseAll_Click" Margin="2" Padding="8,4"/>
+                <Button Content="🗑" Click="DeleteSelected_Click" Margin="2" Padding="8,4"/>
+                <Separator/>
+                <Button Content="🌙 Dark" Click="ThemeToggle_Click" Margin="2" Padding="8,4" x:Name="ThemeBtn"/>
+            </ToolBar>
+        </ToolBarTray>
+
+        <!-- Scan status strip -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AccentSoftBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
+                Padding="12,6" x:Name="ScanStrip" Visibility="Collapsed">
+            <DockPanel>
+                <TextBlock x:Name="ScanText" VerticalAlignment="Center" DockPanel.Dock="Left"
+                           Foreground="{DynamicResource SubtleTextBrush}" Margin="0,0,12,0"/>
+                <ProgressBar x:Name="ScanBar" Height="10" Minimum="0" Maximum="50"
+                             Foreground="{DynamicResource AccentBrush}"
+                             Background="{DynamicResource ProgressTrackBrush}" BorderThickness="0"/>
+                <TextBlock Text="state saved — resumable" DockPanel.Dock="Right" Margin="12,0,0,0"
+                           Foreground="{DynamicResource FaintTextBrush}" FontSize="11" VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+
+        <!-- Status bar -->
+        <StatusBar DockPanel.Dock="Bottom" Background="{DynamicResource PanelBackground}"
+                   Foreground="{DynamicResource SubtleTextBrush}">
+            <StatusBarItem>
+                <TextBlock x:Name="StatusCounts"/>
+            </StatusBarItem>
+            <StatusBarItem>
+                <TextBlock x:Name="StatusSpeed"/>
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock x:Name="StatusFolder" Foreground="{DynamicResource FaintTextBrush}"/>
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- Main table -->
+        <DataGrid x:Name="Grid" AutoGenerateColumns="False" CanUserAddRows="False"
+                  SelectionMode="Single" GridLinesVisibility="None" HeadersVisibility="Column"
+                  Background="{DynamicResource WindowBackground}" Foreground="{DynamicResource TextBrush}"
+                  BorderThickness="0" RowBackground="Transparent" AlternatingRowBackground="Transparent"
+                  VirtualizingStackPanel.IsVirtualizing="True"
+                  VirtualizingStackPanel.VirtualizationMode="Recycling">
+            <DataGrid.ColumnHeaderStyle>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background" Value="{DynamicResource PanelBackground}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource FaintTextBrush}"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="FontSize" Value="11"/>
+                    <Setter Property="Padding" Value="12,8"/>
+                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}"/>
+                </Style>
+            </DataGrid.ColumnHeaderStyle>
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource HoverRowBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+            <DataGrid.CellStyle>
+                <Style TargetType="DataGridCell">
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Padding" Value="12,8"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="DataGridCell">
+                                <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </DataGrid.CellStyle>
+            <DataGrid.Columns>
+                <!-- Name -->
+                <DataGridTemplateColumn Header="Name" Width="2.2*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock FontSize="11" Foreground="{DynamicResource FaintTextBrush}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="{Binding FileCount, StringFormat='{}{0} files'}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsFolder}" Value="False">
+                                                    <Setter Property="Text" Value="file"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="{Binding DedupNote}" FontSize="11"
+                                           Foreground="{DynamicResource FaintTextBrush}"
+                                           Visibility="{Binding HasBackup, Converter={StaticResource BoolVis}}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Progress / password -->
+                <DataGridTemplateColumn Header="Progress" Width="1.4*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid x:Name="BarGrid">
+                                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding Progress}"
+                                                 Height="16" BorderThickness="1"
+                                                 BorderBrush="{DynamicResource BorderStrongBrush}"
+                                                 Background="{DynamicResource ProgressTrackBrush}"
+                                                 Foreground="{Binding Status, Converter={StaticResource BarBrush}}"/>
+                                    <TextBlock Text="{Binding StatusText}" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" FontSize="11"
+                                               Foreground="{DynamicResource ProgressTextBrush}"/>
+                                </Grid>
+                                <StackPanel x:Name="PwPanel" Orientation="Horizontal" Visibility="Collapsed">
+                                    <PasswordBox x:Name="PwBox" Width="130" Margin="0,0,6,0"
+                                                 PasswordChanged="PwBox_PasswordChanged"
+                                                 Background="{DynamicResource InputBackground}"
+                                                 Foreground="{DynamicResource TextBrush}"
+                                                 BorderBrush="{DynamicResource WarningBrush}"/>
+                                    <Button Content="Unlock" Click="Unlock_Click" Padding="8,2"/>
+                                </StackPanel>
+                            </Grid>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding Status}" Value="NeedsPassword">
+                                    <Setter TargetName="BarGrid" Property="Visibility" Value="Collapsed"/>
+                                    <Setter TargetName="PwPanel" Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Speed -->
+                <DataGridTemplateColumn Header="Speed" Width="0.7*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding SpeedBps, Converter={StaticResource Speed}}"
+                                       HorizontalAlignment="Right" FontVariantNumeric="Tabular"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Size -->
+                <DataGridTemplateColumn Header="Size" Width="0.9*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock HorizontalAlignment="Right" FontVariantNumeric="Tabular"
+                                       Foreground="{DynamicResource SubtleTextBrush}">
+                                <TextBlock.Text>
+                                    <MultiBinding Converter="{StaticResource SizePair}">
+                                        <Binding Path="DownloadedBytes"/>
+                                        <Binding Path="TotalSize"/>
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Elapsed -->
+                <DataGridTemplateColumn Header="Elapsed" Width="0.6*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Elapsed, Converter={StaticResource Elapsed}}"
+                                       HorizontalAlignment="Right" FontVariantNumeric="Tabular"
+                                       Foreground="{DynamicResource FaintTextBrush}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Host -->
+                <DataGridTemplateColumn Header="Host" Width="0.7*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border CornerRadius="10" Padding="9,3" HorizontalAlignment="Left">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="{DynamicResource BadgePCloudBg}"/>
+                                        <Setter Property="BorderBrush" Value="{DynamicResource BadgePCloudBd}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding PrimaryHost}" Value="mediafire">
+                                                <Setter Property="Background" Value="{DynamicResource BadgeMFBg}"/>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource BadgeMFBd}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock FontSize="11" FontWeight="Bold">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="pCloud"/>
+                                            <Setter Property="Foreground" Value="{DynamicResource BadgePCloudFg}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding PrimaryHost}" Value="mediafire">
+                                                    <Setter Property="Text" Value="MediaFire"/>
+                                                    <Setter Property="Foreground" Value="{DynamicResource BadgeMFFg}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Actions -->
+                <DataGridTemplateColumn Header="" Width="0.9*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="⬇" ToolTip="Download" Click="RowDownload_Click"
+                                        Margin="0,0,4,0" Padding="6,2">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Status}" Value="Downloading">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="▶" ToolTip="Resume" Click="RowDownload_Click"
+                                        Margin="0,0,4,0" Padding="6,2">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Status}" Value="Paused">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="Failed">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="⏸" ToolTip="Pause" Click="RowPause_Click"
+                                        Margin="0,0,4,0" Padding="6,2">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Status}" Value="Downloading">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="✕" ToolTip="Remove" Click="RowDelete_Click" Padding="6,2"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>
