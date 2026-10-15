@@ -23,17 +23,20 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -o publish
 
-      - name: Upload exe
-        uses: actions/upload-artifact@v4
-        with:
-          name: PhoenixLeecher-win-x64
-          path: publish/PhoenixLeecher.exe
+      - name: Build installer
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          $ver = "${{ github.ref_name }}".TrimStart('v')
+          if ([string]::IsNullOrWhiteSpace($ver)) { $ver = "0.0.0-dev" }
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$ver" installer/setup.iss
+          Get-ChildItem installer/Output
 
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: publish/PhoenixLeecher.exe
+          files: installer/Output/*.exe
           body: |
-            Phoenix Leecher ${{ github.ref_name }} — Windows single-file exe.
+            Phoenix Leecher ${{ github.ref_name }} — Windows installer (setup exe).
             Unsigned: Windows SmartScreen "Unknown publisher" warning is expected.
