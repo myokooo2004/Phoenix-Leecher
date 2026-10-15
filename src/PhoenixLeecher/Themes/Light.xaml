@@ -1,0 +1,31 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Light theme (default, user spec) -->
+    <Color x:Key="AccentColor">#0D9488</Color>
+    <SolidColorBrush x:Key="WindowBackground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="PanelBackground" Color="#F7F7F9"/>
+    <SolidColorBrush x:Key="PanelAltBackground" Color="#F0F0F4"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="#E0E0E6"/>
+    <SolidColorBrush x:Key="BorderStrongBrush" Color="#D2D2DA"/>
+    <SolidColorBrush x:Key="TextBrush" Color="#1A1A1E"/>
+    <SolidColorBrush x:Key="SubtleTextBrush" Color="#55555F"/>
+    <SolidColorBrush x:Key="FaintTextBrush" Color="#8A8A95"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}"/>
+    <SolidColorBrush x:Key="AccentForeground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="#140D9488"/>
+    <SolidColorBrush x:Key="InputBackground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ProgressTrackBrush" Color="#E8E8EE"/>
+    <SolidColorBrush x:Key="ProgressTextBrush" Color="#1A1A1E"/>
+    <SolidColorBrush x:Key="DoneBrush" Color="#1F9D55"/>
+    <SolidColorBrush x:Key="PausedBrush" Color="#8A8A95"/>
+    <SolidColorBrush x:Key="SelectedRowBrush" Color="#120D9488"/>
+    <SolidColorBrush x:Key="HoverRowBrush" Color="#F4F4F6"/>
+    <SolidColorBrush x:Key="DangerBrush" Color="#C05555"/>
+    <SolidColorBrush x:Key="BadgePCloudBg" Color="#1A0D9488"/>
+    <SolidColorBrush x:Key="BadgePCloudFg" Color="#0D9488"/>
+    <SolidColorBrush x:Key="BadgePCloudBd" Color="#590D9488"/>
+    <SolidColorBrush x:Key="BadgeMFBg" Color="#144285F4"/>
+    <SolidColorBrush x:Key="BadgeMFFg" Color="#2B6CB0"/>
+    <SolidColorBrush x:Key="BadgeMFBd" Color="#4D4285F4"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="#C08A2E"/>
+</ResourceDictionary>
