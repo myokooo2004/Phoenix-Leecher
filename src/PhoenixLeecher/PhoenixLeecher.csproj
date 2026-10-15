@@ -10,7 +10,6 @@
     <RootNamespace>PhoenixLeecher</RootNamespace>
     <Version>1.0.0</Version>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Resource Include="Assets\app.ico" />
     <!-- Single-file Windows exe -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
@@ -18,5 +17,9 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <!-- System font (Segoe UI) is WPF default: no bundled fonts -->
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
 
 </Project>
