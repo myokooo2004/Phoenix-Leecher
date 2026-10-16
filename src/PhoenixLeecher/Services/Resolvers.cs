@@ -261,7 +261,14 @@ public static class ShareResolver
         }
         catch { /* fall through to URL segment */ }
         var seg = fileUrl.TrimEnd('/').Split('/');
-        return seg.Length >= 1 ? HttpUtility.UrlDecode(seg[^1]) : null;
+        // MediaFire file URLs are /file/{key}/{filename}; some blog links append a trailing
+        // "/file" (e.g. .../song.mp3/file) — then the real name is the second-to-last segment.
+        // Verified 2026-10-16: phyuniwarpyar.blogspot.com links carry the .mp3 name in the URL.
+        string candidate = seg.Length >= 1 ? seg[^1] : "";
+        if (candidate.Equals("file", StringComparison.OrdinalIgnoreCase) && seg.Length >= 2)
+            candidate = seg[^2];
+        candidate = HttpUtility.UrlDecode(candidate);
+        return string.IsNullOrWhiteSpace(candidate) ? null : candidate;
     }
 
     /// <summary>Direct (expiring, 302) download URL for one MediaFire file. Verified 2026-10-15.</summary>

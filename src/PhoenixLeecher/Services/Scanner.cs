@@ -314,6 +314,11 @@ public sealed class LinkScanner
                 entry.MediaFireShareUrl = link;
                 if (entry.PrimaryHost != "pcloud") entry.PrimaryHost = "mediafire";
             }
+            // Blank-name repair (2026-10-16): if the entry was created with an empty
+            // DisplayName (e.g. MediaFire returned a blank folder name) and this resolve
+            // has a real name, take it. Key is left unchanged to keep the dict consistent.
+            if (string.IsNullOrWhiteSpace(entry.DisplayName) && !string.IsNullOrWhiteSpace(resolved.InsideName))
+                entry.DisplayName = resolved.InsideName;
             // Unlock flow: password entry was created without files; merge them now.
             if (entry.Files.Count == 0 && resolved.Files.Count > 0)
             {

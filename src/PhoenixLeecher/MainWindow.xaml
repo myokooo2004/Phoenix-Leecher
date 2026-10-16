@@ -38,8 +38,8 @@
                 </MenuItem>
             </MenuItem>
             <MenuItem Header="View">
-                <MenuItem Header="Light mode" Click="ThemeLight_Click" x:Name="MenuLight" IsChecked="True"/>
-                <MenuItem Header="Dark mode" Click="ThemeDark_Click" x:Name="MenuDark"/>
+                <MenuItem Header="Light mode" Click="ThemeLight_Click" x:Name="MenuLight" IsChecked="True" IsCheckable="True"/>
+                <MenuItem Header="Dark mode" Click="ThemeDark_Click" x:Name="MenuDark" IsCheckable="True"/>
             </MenuItem>
             <MenuItem Header="Help">
                 <MenuItem Header="About Phoenix Leecher" Click="About_Click"/>
@@ -191,6 +191,9 @@
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
                             <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}"/>
+                            <!-- Fix 2026-10-16: selected text was invisible (white system
+                                 HighlightText on light teal). Force theme text color. -->
+                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
                         </Trigger>
                     </Style.Triggers>
                 </Style>
@@ -213,6 +216,8 @@
                         <!-- Belt and suspenders: selected cells use our brush, never system blue. -->
                         <Trigger Property="IsSelected" Value="True">
                             <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}"/>
+                            <!-- Fix 2026-10-16: keep text readable when selected. -->
+                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
                         </Trigger>
                     </Style.Triggers>
                 </Style>
