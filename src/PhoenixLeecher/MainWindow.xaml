@@ -449,11 +449,15 @@
                         Margin="0,0,0,40">
                 <Image Source="Assets/app.ico" Width="88" Height="88" Margin="0,0,0,20"
                        RenderOptions.BitmapScalingMode="HighQuality" Opacity="0.92"/>
-                <TextBlock Text="No downloads yet" FontSize="17" FontWeight="SemiBold"
+                <TextBlock Text="Phoenix Leecher (pCloud / MediaFire)" FontSize="17" FontWeight="SemiBold"
                            HorizontalAlignment="Center" Foreground="{DynamicResource TextBrush}"/>
-                <TextBlock Text="Paste a page URL above and press Find Links — or Scan a blog for older posts."
+                <TextBlock Text="Paste a website link above — the app automatically finds pCloud and MediaFire links on the page and lists them here for download."
                            FontSize="13" Margin="0,8,0,0" HorizontalAlignment="Center"
                            Foreground="{DynamicResource SubtleTextBrush}" TextWrapping="Wrap"
+                           MaxWidth="420" TextAlignment="Center"/>
+                <TextBlock Text="Tip: you can also paste a pCloud or MediaFire link directly."
+                           FontSize="12" Margin="0,6,0,0" HorizontalAlignment="Center"
+                           Foreground="{DynamicResource FaintTextBrush}" TextWrapping="Wrap"
                            MaxWidth="420" TextAlignment="Center"/>
             </StackPanel>
         </Grid>

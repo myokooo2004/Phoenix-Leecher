@@ -166,6 +166,14 @@ public partial class MainWindow : Window
     {
         string url = CurrentUrl; // capture on UI thread: UrlBox cannot be read from a worker thread
         if (string.IsNullOrWhiteSpace(url)) return 0;
+        // Direct link support (user request 2026-10-16): if the pasted URL IS a
+        // pCloud/MediaFire share link, resolve it directly instead of fetching as a page.
+        if (LinkScanner.IsShareLink(url))
+        {
+            var (_, isNew) = await Task.Run(() => _scanner.ResolveAndAddAsync(url, _entries, null, CancellationToken.None));
+            SyncRows();
+            return isNew ? 1 : 0;
+        }
         var links = await Task.Run(() => _scanner.FindLinksAsync(url, CancellationToken.None));
         int newAlbums = 0;
         await Task.Run(async () =>

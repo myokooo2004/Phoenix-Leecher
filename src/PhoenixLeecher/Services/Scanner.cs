@@ -51,6 +51,10 @@ public sealed class LinkScanner
     public static List<string> ExtractLinks(string text) =>
         LinkRe.Matches(text).Select(m => m.Value).Distinct().ToList();
 
+    /// <summary>True if the URL itself is a pCloud/MediaFire share link (for direct paste support).</summary>
+    public static bool IsShareLink(string url) =>
+        !string.IsNullOrWhiteSpace(url) && LinkRe.IsMatch(url.Trim());
+
     public static bool IsBlogspot(string url) =>
         url.Contains("blogspot.", StringComparison.OrdinalIgnoreCase);
 
