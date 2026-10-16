@@ -244,7 +244,23 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="ScrollBar">
                             <Grid Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
-                                <Track x:Name="PART_Track" IsDirectionReversed="True" Focusable="False">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <!-- Line-by-line scroll buttons (user request 2026-10-16) -->
+                                <RepeatButton Grid.Row="0" Command="ScrollBar.LineUpCommand">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent" Padding="0,2">
+                                                <TextBlock Text="▲" FontSize="7" HorizontalAlignment="Center"
+                                                           Foreground="{DynamicResource FaintTextBrush}"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                                <Track x:Name="PART_Track" Grid.Row="1" IsDirectionReversed="True" Focusable="False">
                                     <Track.DecreaseRepeatButton>
                                         <RepeatButton Command="ScrollBar.PageUpCommand"/>
                                     </Track.DecreaseRepeatButton>
@@ -255,6 +271,16 @@
                                         <Thumb/>
                                     </Track.Thumb>
                                 </Track>
+                                <RepeatButton Grid.Row="2" Command="ScrollBar.LineDownCommand">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent" Padding="0,2">
+                                                <TextBlock Text="▼" FontSize="7" HorizontalAlignment="Center"
+                                                           Foreground="{DynamicResource FaintTextBrush}"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
                             </Grid>
                         </ControlTemplate>
                     </Setter.Value>
@@ -267,7 +293,22 @@
                             <Setter.Value>
                                 <ControlTemplate TargetType="ScrollBar">
                                     <Grid Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
-                                        <Track x:Name="PART_Track" IsDirectionReversed="False" Focusable="False"
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <RepeatButton Grid.Column="0" Command="ScrollBar.LineLeftCommand">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="RepeatButton">
+                                                    <Border Background="Transparent" Padding="2,0">
+                                                        <TextBlock Text="◀" FontSize="7" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource FaintTextBrush}"/>
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
+                                        <Track x:Name="PART_Track" Grid.Column="1" IsDirectionReversed="False" Focusable="False"
                                                Orientation="Horizontal">
                                             <Track.DecreaseRepeatButton>
                                                 <RepeatButton Command="ScrollBar.PageLeftCommand"/>
@@ -279,6 +320,16 @@
                                                 <Thumb/>
                                             </Track.Thumb>
                                         </Track>
+                                        <RepeatButton Grid.Column="2" Command="ScrollBar.LineRightCommand">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="RepeatButton">
+                                                    <Border Background="Transparent" Padding="2,0">
+                                                        <TextBlock Text="▶" FontSize="7" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource FaintTextBrush}"/>
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
                                     </Grid>
                                 </ControlTemplate>
                             </Setter.Value>

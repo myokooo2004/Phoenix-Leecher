@@ -53,6 +53,12 @@ public partial class MainWindow : Window
     }
 
     // ---------- rows sync (UI thread) ----------
+    private void RenumberRows()
+    {
+        for (int i = 0; i < _rows.Count; i++)
+            _rows[i].RowNumber = i + 1;
+    }
+
     private void SyncRows()
     {
         foreach (var kv in _entries)
@@ -70,6 +76,7 @@ public partial class MainWindow : Window
                 _byId.Remove(_rows[i].Id);
                 _rows.RemoveAt(i);
             }
+        RenumberRows();
         UpdateCounts();
     }
 
@@ -569,6 +576,7 @@ public partial class MainWindow : Window
                 _byId[entry.Id] = entry;
                 _rows.Add(entry);
             }
+            RenumberRows();
             UpdateCounts();
         }
         catch { /* a corrupt file must never break startup */ }

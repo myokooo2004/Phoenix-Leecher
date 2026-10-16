@@ -35,6 +35,9 @@ public sealed class LeecherEntry : INotifyPropertyChanged
     public int FileCount { get; set; }
     public long TotalSize { get; set; }
 
+    private int _rowNumber;
+    public int RowNumber { get => _rowNumber; set => Set(ref _rowNumber, value); } // 1-based display order
+
     // "pcloud" | "mediafire" — which host is primary for download
     public string PrimaryHost { get; set; } = "pcloud";
     // Share URLs (inside-name resolved from these). MediaFire kept as backup.

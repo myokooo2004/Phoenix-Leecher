@@ -223,13 +223,25 @@ public static class ShareResolver
             // named "file" is never useful; treat as unresolvable (becomes a Dead row).
             if (string.IsNullOrWhiteSpace(name) || name.Equals("file", StringComparison.OrdinalIgnoreCase))
                 throw new HttpRequestException("Could not determine MediaFire file name");
+            // Size via HEAD on the direct URL (best effort; user request 2026-10-16).
+            // Without this, single files show 0.0 B and download % is meaningless.
+            long size = 0;
+            try
+            {
+                string direct = await MediaFireDirectUrlAsync(key, ct);
+                using var headReq = new HttpRequestMessage(HttpMethod.Head, direct);
+                using var headResp = await HttpRetry.Client.SendAsync(headReq, ct);
+                if (headResp.Content.Headers.ContentLength is long len && len > 0)
+                    size = len;
+            }
+            catch { /* size stays 0; download still works */ }
             return new ResolvedShare
             {
                 Host = "mediafire",
                 ShareUrl = url,
                 InsideName = MyanmarText.ForDisplay(name),
                 IsFolder = false,
-                Files = { new RemoteFile { Name = MyanmarText.ForDisplay(name), RefId = key } },
+                Files = { new RemoteFile { Name = MyanmarText.ForDisplay(name), Size = size, RefId = key } },
             };
         }
         throw new ArgumentException("Unrecognized MediaFire URL");

@@ -223,6 +223,15 @@
                 </Style>
             </DataGrid.CellStyle>
             <DataGrid.Columns>
+                <!-- No. (1-based row number) -->
+                <DataGridTextColumn Header="No." Binding="{Binding RowNumber}" Width="45">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="Foreground" Value="{DynamicResource FaintTextBrush}"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
                 <!-- Name -->
                 <DataGridTemplateColumn Header="Name" Width="2.2*">
                     <DataGridTemplateColumn.CellTemplate>
