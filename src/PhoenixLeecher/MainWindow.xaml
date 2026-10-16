@@ -71,7 +71,7 @@
                         <TextBlock Text="Stop" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
-                <Separator/>
+                <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="8,6"/>
                 <Button Click="DownloadAll_Click" Margin="2" Padding="8,4" ToolTip="Download all entries">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
@@ -87,7 +87,7 @@
                 <Button Click="DeleteSelected_Click" Margin="2" Padding="8,4" ToolTip="Remove selected">
                     <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center"/>
                 </Button>
-                <Separator/>
+                <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="8,6"/>
                 <Button Click="ThemeToggle_Click" Margin="2" Padding="8,4" x:Name="ThemeBtn" ToolTip="Toggle dark mode">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE708;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
@@ -318,7 +318,7 @@
                                         Margin="0,0,4,0" Padding="6,2">
                                     <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets"/>
                                     <Button.Style>
-                                        <Style TargetType="Button">
+                                        <Style TargetType="Button" BasedOn="{StaticResource FlatButton}">
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding Status}" Value="Downloading">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -331,7 +331,7 @@
                                         Margin="0,0,4,0" Padding="6,2">
                                     <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets"/>
                                     <Button.Style>
-                                        <Style TargetType="Button">
+                                        <Style TargetType="Button" BasedOn="{StaticResource FlatButton}">
                                             <Setter Property="Visibility" Value="Collapsed"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding Status}" Value="Paused">
@@ -348,7 +348,7 @@
                                         Margin="0,0,4,0" Padding="6,2">
                                     <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets"/>
                                     <Button.Style>
-                                        <Style TargetType="Button">
+                                        <Style TargetType="Button" BasedOn="{StaticResource FlatButton}">
                                             <Setter Property="Visibility" Value="Collapsed"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding Status}" Value="Downloading">
