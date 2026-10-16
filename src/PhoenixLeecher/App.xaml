@@ -111,15 +111,6 @@
             </Style>
             <Style TargetType="ToolBarTray">
                 <Setter Property="Background" Value="{DynamicResource PanelBackground}"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="ToolBarTray">
-                            <Border Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
-                                <ToolBarPanel IsItemsHost="True" Orientation="Horizontal"/>
-                            </Border>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
             </Style>
 
             <!-- Menu -->
