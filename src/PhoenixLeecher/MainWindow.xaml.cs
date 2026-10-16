@@ -124,8 +124,9 @@ public partial class MainWindow : Window
     // ---------- Find Links (immediate, page only) ----------
     private async Task DoFindLinksAsync()
     {
-        if (string.IsNullOrWhiteSpace(CurrentUrl)) return;
-        var links = await Task.Run(() => _scanner.FindLinksAsync(CurrentUrl, CancellationToken.None));
+        string url = CurrentUrl; // capture on UI thread: UrlBox cannot be read from a worker thread
+        if (string.IsNullOrWhiteSpace(url)) return;
+        var links = await Task.Run(() => _scanner.FindLinksAsync(url, CancellationToken.None));
         await Task.Run(async () =>
         {
             foreach (var link in links)
@@ -149,7 +150,8 @@ public partial class MainWindow : Window
     // ---------- Scan (older posts, 50 links, resumable) ----------
     private async void Scan_Click(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(CurrentUrl)) return;
+        string url = CurrentUrl; // capture on UI thread: UrlBox cannot be read from a worker thread
+        if (string.IsNullOrWhiteSpace(url)) return;
         ScanBtn.IsEnabled = false;
         try
         {
@@ -159,7 +161,7 @@ public partial class MainWindow : Window
             _scanCts = new CancellationTokenSource();
             StopBtn.IsEnabled = true;
             ScanStrip.Visibility = Visibility.Visible;
-            await Task.Run(() => _scanner.ScanAsync(CurrentUrl, _entries, _scanProgress, _scanCts.Token));
+            await Task.Run(() => _scanner.ScanAsync(url, _entries, _scanProgress, _scanCts.Token));
         }
         catch (OperationCanceledException) { /* Stop pressed: state already saved */ }
         catch (Exception ex)
