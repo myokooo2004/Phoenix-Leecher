@@ -18,7 +18,10 @@ public partial class MainWindow : Window
     private readonly ConcurrentDictionary<string, LeecherEntry> _entries = new();
     private readonly ObservableCollection<LeecherEntry> _rows = new();
     private readonly Dictionary<string, LeecherEntry> _byId = new();
-    private readonly Dictionary<string, CancellationTokenSource> _dlCts = new();
+    private readonly ConcurrentDictionary<string, CancellationTokenSource> _dlCts = new();
+    private readonly ConcurrentDictionary<string, Task> _dlTasks = new();
+    private bool _isBatchRunning;
+    private readonly List<string> _bothFailedNames = new(); // guarded by lock(_bothFailedNames)
     private readonly Dictionary<string, string> _passwords = new();
     private readonly LinkScanner _scanner = new();
     private DownloadEngine _engine = new(maxConcurrentFiles: 3);
@@ -99,6 +102,19 @@ public partial class MainWindow : Window
         if (t.Status is EntryStatus.Completed or EntryStatus.Failed or EntryStatus.Paused)
         {
             if (_dlCts.Remove(t.EntryId, out var cts)) cts.Dispose();
+            // Both-links-failed: pCloud tried, MediaFire backup tried, both failed (user spec 2026-10-16).
+            if (t.Status == EntryStatus.Failed && e.BothLinksFailed)
+            {
+                lock (_bothFailedNames) _bothFailedNames.Add(e.DisplayName);
+                if (!_isBatchRunning)
+                {
+                    // Single download: notify immediately.
+                    MessageBox.Show($"Album '{e.DisplayName}': pCloud and MediaFire links both failed.",
+                        "Phoenix Leecher", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    lock (_bothFailedNames) _bothFailedNames.Clear();
+                }
+                // Batch: DownloadAll_Click shows one summary at the end.
+            }
             SaveEntries();
         }
         UpdateCounts();
@@ -107,24 +123,30 @@ public partial class MainWindow : Window
     private void ApplyScanProgress(ScanProgress p)
     {
         ScanBar.Maximum = p.Target;
-        ScanBar.Value = p.LinksFound;
+        ScanBar.Value = p.AlbumsFound;
         ScanText.Text = p.Running
-            ? $"Scanning older posts… {p.LinksFound}/{p.Target} links" +
+            ? $"Scanning older posts… {p.AlbumsFound}/{p.Target} albums" +
               (p.TotalPosts > 0 ? $" · post {p.PostsDone}/{p.TotalPosts}" : $" · {p.PostsDone} posts")
-            : $"Scan {p.Note}: {p.LinksFound}/{p.Target} links";
+            : $"Scan {p.Note}: {p.AlbumsFound}/{p.Target} albums";
         if (!p.Running)
         {
             ScanBtn.IsEnabled = true;
             StopBtn.IsEnabled = false;
-            // Target reached or exhausted -> clear saved state; stopped early -> keep for Resume.
-            if (p.LinksFound >= p.Target || p.Note.Contains("exhaust"))
+            // Target reached -> cursor preserved + counter reset by Scanner (next Whole scan
+            // finds the NEXT 50). Exhausted -> clear (fresh start may find new posts).
+            // Stopped early -> keep for Resume.
+            if (p.AlbumsFound >= p.Target)
+            {
+                ScanBtnLabel.Text = "Whole scan";
+            }
+            else if (p.Note.Contains("exhaust"))
             {
                 _scanner.ClearState(UrlBox.Text.Trim());
                 ScanBtnLabel.Text = "Whole scan";
             }
             else if (LinkScanner.IsBlogspot(UrlBox.Text.Trim()))
             {
-                ScanBtnLabel.Text = $"Resume scan ({p.LinksFound}/{p.Target})";
+                ScanBtnLabel.Text = $"Resume scan ({p.AlbumsFound}/{p.Target})";
             }
         }
     }
@@ -132,17 +154,23 @@ public partial class MainWindow : Window
     private string CurrentUrl => UrlBox.Text.Trim();
 
     // ---------- Find Links (immediate, page only) ----------
-    private async Task DoFindLinksAsync()
+    // ---------- Find Links (immediate, page only). Returns new unique albums found. ----------
+    private async Task<int> DoFindLinksAsync()
     {
         string url = CurrentUrl; // capture on UI thread: UrlBox cannot be read from a worker thread
-        if (string.IsNullOrWhiteSpace(url)) return;
+        if (string.IsNullOrWhiteSpace(url)) return 0;
         var links = await Task.Run(() => _scanner.FindLinksAsync(url, CancellationToken.None));
+        int newAlbums = 0;
         await Task.Run(async () =>
         {
             foreach (var link in links)
-                await _scanner.ResolveAndAddAsync(link, _entries, null, CancellationToken.None);
+            {
+                var (_, isNew) = await _scanner.ResolveAndAddAsync(link, _entries, null, CancellationToken.None);
+                if (isNew) newAlbums++;
+            }
         });
         SyncRows();
+        return newAlbums;
     }
 
     // ---------- Page scan (immediate, page only) ----------
@@ -159,7 +187,7 @@ public partial class MainWindow : Window
         finally { SaveEntries(); SetScanRunning(false); }
     }
 
-    // ---------- Whole scan (page + older posts, 50 links, resumable) ----------
+    // ---------- Whole scan (page + older posts, 50 NEW albums, resumable) ----------
     private async void WholeScan_Click(object sender, RoutedEventArgs e)
     {
         if (_scanRunning) return;
@@ -168,13 +196,33 @@ public partial class MainWindow : Window
         SetScanRunning(true);
         try
         {
-            // Resume: crawl only from the saved cursor (no page re-scrape).
-            // Fresh: page links first (immediate), then older-posts crawl.
+            // Run model (user spec 2026-10-16):
+            // - Fresh: page links first (counted), then older-posts crawl to 50 NEW albums.
+            // - Stopped early (AlbumsFound in 1..49): resume from saved cursor, no page re-scrape.
+            // - Target reached (previous run hit 50): NEW run — cursor preserved, counter reset,
+            //   next 50 NEW albums; already-seen links are not re-counted (dedup).
             var saved = _scanner.LoadState(url);
-            bool isResume = saved != null && saved.LinksFound < LinkScanner.LinkTarget
-                && LinkScanner.IsBlogspot(url);
+            bool isBlog = LinkScanner.IsBlogspot(url);
+            bool targetReached = saved != null && saved.AlbumsFound >= LinkScanner.LinkTarget;
+            bool isResume = saved != null && !targetReached && saved.AlbumsFound > 0 && isBlog;
+
+            if (targetReached)
+            {
+                // Previous run completed 50: reset counter, keep cursor for the next 50.
+                saved!.AlbumsFound = 0;
+                _scanner.SaveState(saved);
+                isResume = true; // skip page re-scrape, continue from cursor
+            }
+
             if (!isResume)
-                await DoFindLinksAsync();
+            {
+                int pageAlbums = await DoFindLinksAsync();
+                // Seed the run counter with page albums so the feed crawl continues toward 50.
+                var s = _scanner.LoadState(url) ?? new ScanState { BlogUrl = url };
+                s.AlbumsFound = pageAlbums;
+                s.StartIndex = 1;
+                _scanner.SaveState(s);
+            }
 
             _scanCts = new CancellationTokenSource();
             StopBtn.IsEnabled = true;
@@ -212,20 +260,27 @@ public partial class MainWindow : Window
     }
 
     // ---------- downloads ----------
-    private void StartDownload(LeecherEntry entry)
+    /// <summary>Starts a download if possible. Returns true if a download was started.</summary>
+    private bool StartDownloadNow(LeecherEntry entry)
     {
-        if (entry.Status == EntryStatus.Downloading) return;
+        if (entry.Status == EntryStatus.Downloading) return false;
         if (entry.Status == EntryStatus.NeedsPassword && string.IsNullOrEmpty(entry.Password))
         {
             MessageBox.Show("This link needs a password — enter it in the row and press Unlock.",
                 "Phoenix Leecher", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
+            return false;
         }
-        if (_dlCts.ContainsKey(entry.Id)) return;
+        if (_dlCts.ContainsKey(entry.Id)) return false;
         var cts = new CancellationTokenSource();
         _dlCts[entry.Id] = cts;
-        _ = _engine.DownloadAsync(entry, _tickProgress, cts.Token);
+        var task = _engine.DownloadAsync(entry, _tickProgress, cts.Token);
+        _dlTasks[entry.Id] = task;
+        // Clean up the task slot when done (ApplyTick removes the CTS on terminal state).
+        _ = task.ContinueWith(_ => _dlTasks.TryRemove(entry.Id, out _), TaskScheduler.Default);
+        return true;
     }
+
+    private void StartDownload(LeecherEntry entry) => StartDownloadNow(entry);
 
     private void RowDownload_Click(object sender, RoutedEventArgs e)
     {
@@ -248,22 +303,33 @@ public partial class MainWindow : Window
         _dlBatchCts?.Dispose();
         var batchCts = new CancellationTokenSource();
         _dlBatchCts = batchCts;
-        var list = _rows.Where(x => x.Status is EntryStatus.Ready or EntryStatus.Paused or EntryStatus.Failed).ToList();
-        await Task.Run(() =>
+        _isBatchRunning = true;
+        try
         {
+            var list = _rows.Where(x => x.Status is EntryStatus.Ready or EntryStatus.Paused or EntryStatus.Failed).ToList();
             foreach (var entry in list)
             {
-                if (batchCts.Token.IsCancellationRequested) break;
-                Dispatcher.Invoke(() => StartDownload(entry));
-                // Wait until this entry leaves Downloading (sequential entries; files inside use 3 slots).
-                while (_dlCts.ContainsKey(entry.Id))
-                {
-                    if (batchCts.Token.IsCancellationRequested) break;
-                    Thread.Sleep(500);
-                }
+                batchCts.Token.ThrowIfCancellationRequested();
+                // Start on the UI thread; skip if not started (already running / needs password).
+                bool started = (bool)Dispatcher.Invoke(() => StartDownloadNow(entry));
+                if (!started) continue;
+                // Wait for this entry's download task (or batch cancel) — no polling.
+                if (_dlTasks.TryGetValue(entry.Id, out var task))
+                    await Task.WhenAny(task, Task.Delay(Timeout.Infinite, batchCts.Token));
             }
-        });
-        if (_dlBatchCts == batchCts) { _dlBatchCts = null; batchCts.Dispose(); }
+        }
+        catch (OperationCanceledException) { /* Pause All pressed */ }
+        finally
+        {
+            _isBatchRunning = false;
+            if (_dlBatchCts == batchCts) { _dlBatchCts = null; batchCts.Dispose(); }
+            // Batch summary: albums where BOTH pCloud and MediaFire failed.
+            List<string> failed;
+            lock (_bothFailedNames) { failed = new List<string>(_bothFailedNames); _bothFailedNames.Clear(); }
+            if (failed.Count > 0)
+                MessageBox.Show("These albums failed on both pCloud and MediaFire:\n- " + string.Join("\n- ", failed),
+                    "Phoenix Leecher", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void PauseAll_Click(object sender, RoutedEventArgs e)
@@ -342,7 +408,7 @@ public partial class MainWindow : Window
                 entry.StatusText = "Password required";
                 return;
             }
-            var fresh = await Task.Run(() => _scanner.ResolveAndAddAsync(url, _entries, pw, CancellationToken.None));
+            var (fresh, _) = await Task.Run(() => _scanner.ResolveAndAddAsync(url, _entries, pw, CancellationToken.None));
             SyncRows();
             if (fresh.Status == EntryStatus.NeedsPassword)
             {
@@ -423,7 +489,8 @@ public partial class MainWindow : Window
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(EntriesPath)!);
-            var list = _entries.Values.Select(e => new SavedEntry
+            // Save in display order (_rows), not dict order, so the layout survives restart.
+            var list = _rows.Select(e => new SavedEntry
             {
                 NormalizedKey = e.NormalizedKey,
                 DisplayName = e.DisplayName,
@@ -447,6 +514,7 @@ public partial class MainWindow : Window
             if (!File.Exists(EntriesPath)) return;
             var list = JsonSerializer.Deserialize<List<SavedEntry>>(File.ReadAllText(EntriesPath));
             if (list == null) return;
+            var rebuilt = new List<LeecherEntry>();
             foreach (var s in list)
             {
                 // Mid-resolve entries (no files yet) can't download; user re-scans.
@@ -491,9 +559,17 @@ public partial class MainWindow : Window
                 entry.Progress = entry.TotalSize > 0
                     ? Math.Min(100, entry.DownloadedBytes * 100.0 / entry.TotalSize) : 0;
                 entry.RefreshDerived();
-                _entries[entry.NormalizedKey] = entry;
+                rebuilt.Add(entry);
             }
-            SyncRows();
+            // Completed first (stable), then the rest — matches the pre-close layout (user spec 2026-10-16).
+            // Add directly in order (bypasses SyncRows' dict ordering).
+            foreach (var entry in rebuilt.OrderByDescending(e => e.Status == EntryStatus.Completed))
+            {
+                _entries[entry.NormalizedKey] = entry;
+                _byId[entry.Id] = entry;
+                _rows.Add(entry);
+            }
+            UpdateCounts();
         }
         catch { /* a corrupt file must never break startup */ }
     }

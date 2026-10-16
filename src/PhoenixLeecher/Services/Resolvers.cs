@@ -218,6 +218,11 @@ public static class ShareResolver
             // Single file link: inside-name via file page title fallback; quickkey from URL.
             string key = fileM.Groups[1].Value;
             string name = await MediaFireFileNameAsync(url, ct) ?? key;
+            // Guard (2026-10-16): if the title fetch failed, the fallback is the URL's last
+            // segment — for ".../file/{key}/file" that's literally "file". A 0-byte entry
+            // named "file" is never useful; treat as unresolvable (becomes a Dead row).
+            if (string.IsNullOrWhiteSpace(name) || name.Equals("file", StringComparison.OrdinalIgnoreCase))
+                throw new HttpRequestException("Could not determine MediaFire file name");
             return new ResolvedShare
             {
                 Host = "mediafire",

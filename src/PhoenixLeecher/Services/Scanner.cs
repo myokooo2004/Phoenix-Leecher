@@ -9,7 +9,7 @@ namespace PhoenixLeecher.Services;
 
 public sealed class ScanProgress
 {
-    public int LinksFound { get; set; }
+    public int AlbumsFound { get; set; }  // unique albums (deduped entries), not raw links
     public int Target { get; set; } = 50;
     public int PostsDone { get; set; }
     public int TotalPosts { get; set; }
@@ -21,7 +21,7 @@ public sealed class ScanState
 {
     public string BlogUrl { get; set; } = "";
     public int StartIndex { get; set; } = 1;
-    public int LinksFound { get; set; }
+    public int AlbumsFound { get; set; }  // albums found in the current run (reset per run)
     public int PostsDone { get; set; }
     public DateTime SavedAt { get; set; }
 }
@@ -81,7 +81,7 @@ public sealed class LinkScanner
         return null;
     }
 
-    private void SaveState(ScanState state)
+    public void SaveState(ScanState state)
     {
         Directory.CreateDirectory(AppDir);
         Dictionary<string, ScanState> all = new();
@@ -118,26 +118,29 @@ public sealed class LinkScanner
         CancellationToken ct)
     {
         var state = LoadState(blogUrl) ?? new ScanState { BlogUrl = blogUrl };
-        var prog = new ScanProgress { LinksFound = state.LinksFound, Target = LinkTarget, PostsDone = state.PostsDone, Running = true };
+        var prog = new ScanProgress { AlbumsFound = state.AlbumsFound, Target = LinkTarget, PostsDone = state.PostsDone, Running = true };
 
         try
         {
             if (!IsBlogspot(blogUrl))
             {
-                // Non-blogspot: single page only.
+                // Non-blogspot: single page only. Count unique albums, not links.
                 foreach (var link in await FindLinksAsync(blogUrl, ct))
                 {
                     ct.ThrowIfCancellationRequested();
-                    await ResolveAndAddAsync(link, entries, null, ct);
-                    prog.LinksFound++;
-                    progress.Report(prog);
-                    if (prog.LinksFound >= LinkTarget) break;
+                    var (_, isNew) = await ResolveAndAddAsync(link, entries, null, ct);
+                    if (isNew)
+                    {
+                        prog.AlbumsFound++;
+                        progress.Report(prog);
+                    }
+                    if (prog.AlbumsFound >= LinkTarget) break;
                 }
                 return;
             }
 
             int startIndex = state.StartIndex;
-            while (prog.LinksFound < LinkTarget)
+            while (prog.AlbumsFound < LinkTarget)
             {
                 ct.ThrowIfCancellationRequested();
                 var feedUrl = $"{NormalizeBlogUrl(blogUrl)}/feeds/posts/default?alt=json&max-results=150&start-index={startIndex}";
@@ -171,25 +174,25 @@ public sealed class LinkScanner
                 {
                     ct.ThrowIfCancellationRequested();
                     string content = e.TryGetProperty("content", out var c) ? c.GetProperty("$t").GetString() ?? "" : "";
-                    int linksThisPost = 0;
+                    int albumsThisPost = 0;
                     foreach (var link in ExtractLinks(content))
                     {
-                        if (prog.LinksFound + linksThisPost >= LinkTarget) break;
+                        if (prog.AlbumsFound + albumsThisPost >= LinkTarget) break;
                         ct.ThrowIfCancellationRequested();
-                        await ResolveAndAddAsync(link, entries, null, ct);
-                        linksThisPost++;
+                        var (_, isNew) = await ResolveAndAddAsync(link, entries, null, ct);
+                        if (isNew) albumsThisPost++;
                     }
                     // Commit per post: exact resume cursor, no double-count if stopped mid-post.
-                    prog.LinksFound += linksThisPost;
+                    prog.AlbumsFound += albumsThisPost;
                     prog.PostsDone++;
                     postsDoneInPage++;
                     state.StartIndex = startIndex + postsDoneInPage;
-                    state.LinksFound = prog.LinksFound;
+                    state.AlbumsFound = prog.AlbumsFound;
                     state.PostsDone = prog.PostsDone;
                     state.SavedAt = DateTime.Now;
                     SaveState(state); // resumable across app restart, after every post
                     progress.Report(prog);
-                    if (prog.LinksFound >= LinkTarget) break;
+                    if (prog.AlbumsFound >= LinkTarget) break;
                 }
 
                 startIndex = state.StartIndex; // follow the exact cursor (page may be partial)
@@ -198,18 +201,30 @@ public sealed class LinkScanner
         finally
         {
             // Graceful halt: always persist latest position (Stop or target reached).
-            state.LinksFound = prog.LinksFound;
             state.PostsDone = prog.PostsDone;
             state.SavedAt = DateTime.Now;
+            if (prog.AlbumsFound >= LinkTarget)
+            {
+                // Target reached: preserve the feed cursor for the NEXT 50,
+                // reset the run counter (next Whole scan starts a fresh count).
+                state.AlbumsFound = 0;
+            }
+            else
+            {
+                state.AlbumsFound = prog.AlbumsFound;
+            }
             SaveState(state);
             prog.Running = false;
-            prog.Note = prog.LinksFound >= LinkTarget ? "target reached" : "stopped";
+            prog.Note = prog.AlbumsFound >= LinkTarget ? "target reached" : "stopped";
             progress.Report(prog);
         }
     }
 
-    /// <summary>Resolve one share link and merge into entries (dedup). Throws nothing: dead links are marked.</summary>
-    public async Task<LeecherEntry> ResolveAndAddAsync(
+    /// <summary>
+    /// Resolve one share link and merge into entries (dedup). Throws nothing: dead links are marked.
+    /// Returns the entry and whether it is a NEW unique album (false for duplicates, dead, password).
+    /// </summary>
+    public async Task<(LeecherEntry Entry, bool IsNew)> ResolveAndAddAsync(
         string link, ConcurrentDictionary<string, LeecherEntry> entries, string? password, CancellationToken ct)
     {
         ResolvedShare resolved;
@@ -232,7 +247,7 @@ public sealed class LinkScanner
             string dkey = (dead.IsFolder ? "F:" : "f:") + MyanmarText.NormalizeKey(link);
             dead.NormalizedKey = dkey;
             entries[dkey] = dead;
-            return dead;
+            return (dead, false);
         }
 
         if (resolved.NeedsPassword)
@@ -241,7 +256,7 @@ public sealed class LinkScanner
             var existing = entries.Values.FirstOrDefault(e =>
                 string.Equals(e.PCloudShareUrl, link, StringComparison.Ordinal) ||
                 string.Equals(e.MediaFireShareUrl, link, StringComparison.Ordinal));
-            if (existing != null) return existing;
+            if (existing != null) return (existing, false);
 
             var pw = new LeecherEntry
             {
@@ -254,7 +269,7 @@ public sealed class LinkScanner
             if (ShareResolver.IsPCloud(link)) pw.PCloudShareUrl = link; else pw.MediaFireShareUrl = link;
             pw.NormalizedKey = "pw:" + MyanmarText.NormalizeKey(link);
             entries[pw.NormalizedKey] = pw;
-            return pw;
+            return (pw, false);
         }
 
         // Unlock migration: drop the temporary password entry for this URL (replaced by the real entry below).
@@ -264,8 +279,11 @@ public sealed class LinkScanner
         // Atomic check-and-add: GetOrAdd guarantees a single stored instance per key even when
         // two scans resolve the same inside-name concurrently (previously both created an instance,
         // the dict kept one but the visible list showed both as duplicates).
+        // isNew = true only for the thread that actually created the entry (unique album).
+        bool isNew = false;
         var entry = entries.GetOrAdd(key, _ =>
         {
+            isNew = true;
             var e = new LeecherEntry
             {
                 DisplayName = resolved.InsideName,
@@ -312,6 +330,6 @@ public sealed class LinkScanner
             }
             entry.RefreshDerived();
         }
-        return entry;
+        return (entry, isNew);
     }
 }

@@ -105,6 +105,7 @@ public sealed class DownloadEngine
 
         try
         {
+            entry.BothLinksFailed = false; // reset per download attempt
             // Build per-file work items from the PRIMARY host.
             var work = await BuildWorkItemsAsync(entry, entry.PrimaryHost, targetDir, ct);
 
@@ -122,7 +123,7 @@ public sealed class DownloadEngine
         }
         catch (Exception ex)
         {
-            Report(EntryStatus.Failed, "Failed: " + ex.Message);
+            Report(EntryStatus.Failed, entry.BothLinksFailed ? "Both links failed" : "Failed: " + ex.Message);
         }
     }
 
@@ -193,51 +194,60 @@ public sealed class DownloadEngine
             }
 
             bool fellBack = false;
-            for (int attempt = 0; attempt < 3; attempt++)
+            try
             {
-                ct.ThrowIfCancellationRequested();
-                long offset = File.Exists(partPath) ? new FileInfo(partPath).Length : 0;
-                // Already fully downloaded?
-                if (w.Remote.Size > 0 && offset >= w.Remote.Size)
+                for (int attempt = 0; attempt < 3; attempt++)
                 {
-                    MovePartToFinal(partPath, finalPath);
-                    return;
-                }
+                    ct.ThrowIfCancellationRequested();
+                    long offset = File.Exists(partPath) ? new FileInfo(partPath).Length : 0;
+                    // Already fully downloaded?
+                    if (w.Remote.Size > 0 && offset >= w.Remote.Size)
+                    {
+                        MovePartToFinal(partPath, finalPath);
+                        return;
+                    }
 
-                string url;
-                try { url = await w.ResolveUrl(ct); }
-                catch (Exception) when (attempt < 2)
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(2 << attempt), ct);
-                    continue;
-                }
+                    string url;
+                    try { url = await w.ResolveUrl(ct); }
+                    catch (Exception) when (attempt < 2)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(2 << attempt), ct);
+                        continue;
+                    }
 
-                try
-                {
-                    long corrected = await StreamToFileAsync(url, partPath, finalPath, offset, addBytes, maybeTick, ct);
-                    if (corrected < 0) addBytes(corrected); // server ignored Range: counter correction
-                    return; // success
+                    try
+                    {
+                        long corrected = await StreamToFileAsync(url, partPath, finalPath, offset, addBytes, maybeTick, ct);
+                        if (corrected < 0) addBytes(corrected); // server ignored Range: counter correction
+                        return; // success
+                    }
+                    catch (HttpRequestException ex) when (
+                        ex.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized or HttpStatusCode.Gone)
+                    {
+                        // Expired/dead direct URL -> auto re-resolve fresh URL, resume from offset (user spec).
+                        if (attempt == 2) throw;
+                        await Task.Delay(TimeSpan.FromSeconds(1), ct);
+                        continue;
+                    }
+                    catch (HttpRequestException) when (!fellBack && entry.HasBackup && entry.PrimaryHost == "pcloud")
+                    {
+                        // pCloud broken -> auto fallback to MediaFire backup (user spec).
+                        fellBack = true;
+                        var mfWork = (await BuildWorkItemsAsync(entry, "mediafire", targetDir, ct))
+                            .FirstOrDefault(x => MyanmarText.NormalizeKey(x.Remote.Name) == MyanmarText.NormalizeKey(w.Remote.Name));
+                        if (mfWork == null) throw;
+                        w.ResolveUrl = mfWork.ResolveUrl;
+                        continue;
+                    }
                 }
-                catch (HttpRequestException ex) when (
-                    ex.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized or HttpStatusCode.Gone)
-                {
-                    // Expired/dead direct URL -> auto re-resolve fresh URL, resume from offset (user spec).
-                    if (attempt == 2) throw;
-                    await Task.Delay(TimeSpan.FromSeconds(1), ct);
-                    continue;
-                }
-                catch (HttpRequestException) when (!fellBack && entry.HasBackup && entry.PrimaryHost == "pcloud")
-                {
-                    // pCloud broken -> auto fallback to MediaFire backup (user spec).
-                    fellBack = true;
-                    var mfWork = (await BuildWorkItemsAsync(entry, "mediafire", targetDir, ct))
-                        .FirstOrDefault(x => MyanmarText.NormalizeKey(x.Remote.Name) == MyanmarText.NormalizeKey(w.Remote.Name));
-                    if (mfWork == null) throw;
-                    w.ResolveUrl = mfWork.ResolveUrl;
-                    continue;
-                }
+                throw new HttpRequestException("Download failed after retries");
             }
-            throw new HttpRequestException("Download failed after retries");
+            catch (Exception) when (fellBack)
+            {
+                // pCloud failed AND MediaFire backup failed -> notify (user spec 2026-10-16).
+                entry.BothLinksFailed = true;
+                throw;
+            }
         }
         finally
         {

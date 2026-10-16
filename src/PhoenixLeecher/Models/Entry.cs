@@ -45,6 +45,10 @@ public sealed class LeecherEntry : INotifyPropertyChanged
     // Session-only. Never persisted.
     public string? Password { get; set; }
 
+    // Set by the downloader when pCloud failed AND the MediaFire backup also failed.
+    // Session-only. Never persisted.
+    public bool BothLinksFailed { get; set; }
+
     public List<RemoteFile> Files { get; } = new();
 
     private EntryStatus _status = EntryStatus.Resolving;
