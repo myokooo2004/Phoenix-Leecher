@@ -71,13 +71,25 @@ public sealed class LeecherEntry : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     public void RefreshDerived()
     {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DedupNote)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasBackup)));
+        RaisePropertyChanged(nameof(DedupNote));
+        RaisePropertyChanged(nameof(HasBackup));
     }
     private void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
         if (Equals(field, value)) return;
         field = value;
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        RaisePropertyChanged(name);
+    }
+    // Entries are mutated from background threads (scan/resolve); WPF bindings
+    // must be notified on the UI thread or the app throws a cross-thread exception.
+    private void RaisePropertyChanged(string? name)
+    {
+        var handler = PropertyChanged;
+        if (handler == null) return;
+        var disp = System.Windows.Application.Current?.Dispatcher;
+        if (disp != null && !disp.CheckAccess())
+            disp.BeginInvoke(() => handler(this, new PropertyChangedEventArgs(name)));
+        else
+            handler(this, new PropertyChangedEventArgs(name));
     }
 }
