@@ -280,6 +280,11 @@ public sealed class DownloadEngine
             maybeTick();
         }
         await fs.FlushAsync(ct);
+        // Dispose the file stream BEFORE renaming: on Windows an open handle
+        // (FileShare.None) blocks File.Move, which left a stray .part behind
+        // and marked the entry Failed even at 100%.
+        await fs.DisposeAsync();
+        await stream.DisposeAsync();
         // Completed file -> move .part to final (if we know the size, or always on clean finish)
         MovePartToFinal(partPath, finalPath);
         return correction;

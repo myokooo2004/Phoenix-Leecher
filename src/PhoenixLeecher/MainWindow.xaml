@@ -53,42 +53,71 @@
                          Background="{DynamicResource InputBackground}" Foreground="{DynamicResource TextBrush}"
                          BorderBrush="{DynamicResource BorderStrongBrush}"
                          VerticalContentAlignment="Center" Padding="6,4"/>
-                <Button Click="FindLinks_Click" Margin="2" Padding="8,4" ToolTip="Find share links on the pasted page">
+                <!-- Scan group -->
+                <Button x:Name="PageScanBtn" Click="PageScan_Click" Margin="2" Padding="8,4"
+                        Style="{StaticResource FlatButton}" ToolTip="Find share links on the pasted page only">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                        <TextBlock Text="Find Links" VerticalAlignment="Center"/>
+                        <TextBlock Text="Page scan" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
-                <Button Click="Scan_Click" Margin="2" Padding="8,4" x:Name="ScanBtn" ToolTip="Crawl older blog posts">
+                <Button Click="WholeScan_Click" Margin="2" Padding="8,4" x:Name="ScanBtn"
+                        Style="{StaticResource FlatButton}" ToolTip="Scan the whole site until 50 links">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                        <TextBlock Text="Scan" VerticalAlignment="Center" x:Name="ScanBtnLabel"/>
+                        <TextBlock Text="Whole scan" VerticalAlignment="Center" x:Name="ScanBtnLabel"/>
                     </StackPanel>
                 </Button>
-                <Button Click="Stop_Click" Margin="2" Padding="8,4" x:Name="StopBtn" IsEnabled="False" ToolTip="Stop scan">
+                <Button Click="Stop_Click" Margin="2" Padding="8,4" x:Name="StopBtn" IsEnabled="False"
+                        Style="{StaticResource FlatButton}" ToolTip="Stop scan">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE71A;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
                         <TextBlock Text="Stop" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
                 <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="8,6"/>
-                <Button Click="DownloadAll_Click" Margin="2" Padding="8,4" ToolTip="Download all entries">
+                <!-- Download group -->
+                <Button Click="DownloadAll_Click" Margin="2" Padding="8,4"
+                        Style="{StaticResource FlatButton}" ToolTip="Download all entries">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
                         <TextBlock Text="Download All" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
-                <Button Click="PauseAll_Click" Margin="2" Padding="8,4" ToolTip="Pause all downloads">
+                <Button Click="PauseAll_Click" Margin="2" Padding="8,4"
+                        Style="{StaticResource FlatButton}" ToolTip="Pause all downloads">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
                         <TextBlock Text="Pause All" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
-                <Button Click="DeleteSelected_Click" Margin="2" Padding="8,4" ToolTip="Remove selected">
-                    <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center"/>
+                <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="8,6"/>
+                <!-- Organize group -->
+                <Button Click="OpenFolder_Click" Margin="2" Padding="8,4"
+                        Style="{StaticResource FlatButton}" ToolTip="Open download folder">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="Folder" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Click="RemoveCompleted_Click" Margin="2" Padding="8,4"
+                        Style="{StaticResource FlatButton}" ToolTip="Remove all completed entries from the list">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="Remove completed" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Click="DeleteSelected_Click" Margin="2" Padding="8,4"
+                        Style="{StaticResource FlatButton}" ToolTip="Remove selected entry">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="Delete" VerticalAlignment="Center"/>
+                    </StackPanel>
                 </Button>
                 <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="8,6"/>
-                <Button Click="ThemeToggle_Click" Margin="2" Padding="8,4" x:Name="ThemeBtn" ToolTip="Toggle dark mode">
+                <!-- View -->
+                <Button Click="ThemeToggle_Click" Margin="2" Padding="8,4" x:Name="ThemeBtn"
+                        Style="{StaticResource FlatButton}" ToolTip="Toggle dark mode">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE708;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
                         <TextBlock Text="Dark" VerticalAlignment="Center" x:Name="ThemeBtnLabel"/>
@@ -132,8 +161,16 @@
                   SelectionMode="Single" GridLinesVisibility="None" HeadersVisibility="Column"
                   Background="{DynamicResource WindowBackground}" Foreground="{DynamicResource TextBrush}"
                   BorderThickness="0" RowBackground="Transparent" AlternatingRowBackground="Transparent"
+                  PreviewMouseLeftButtonDown="Grid_PreviewMouseLeftButtonDown"
                   VirtualizingStackPanel.IsVirtualizing="True"
                   VirtualizingStackPanel.VirtualizationMode="Recycling">
+            <DataGrid.Resources>
+                <!-- Kill the system bright-blue selection everywhere inside the grid:
+                     our SelectedRowBrush trigger owns the selection look. -->
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#3F4FD1C5"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#2E4FD1C5"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#2E4FD1C5"/>
+            </DataGrid.Resources>
             <DataGrid.ColumnHeaderStyle>
                 <Style TargetType="DataGridColumnHeader">
                     <Setter Property="Background" Value="{DynamicResource PanelBackground}"/>
@@ -162,6 +199,7 @@
                 <Style TargetType="DataGridCell">
                     <Setter Property="BorderThickness" Value="0"/>
                     <Setter Property="Padding" Value="12,8"/>
+                    <Setter Property="Background" Value="Transparent"/>
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="DataGridCell">
@@ -171,6 +209,12 @@
                             </ControlTemplate>
                         </Setter.Value>
                     </Setter>
+                    <Style.Triggers>
+                        <!-- Belt and suspenders: selected cells use our brush, never system blue. -->
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}"/>
+                        </Trigger>
+                    </Style.Triggers>
                 </Style>
             </DataGrid.CellStyle>
             <DataGrid.Columns>
@@ -222,7 +266,8 @@
                                                  Background="{DynamicResource InputBackground}"
                                                  Foreground="{DynamicResource TextBrush}"
                                                  BorderBrush="{DynamicResource WarningBrush}"/>
-                                    <Button Content="Unlock" Click="Unlock_Click" Padding="8,2"/>
+                                    <Button Content="Unlock" Click="Unlock_Click" Padding="8,2"
+                                            Style="{StaticResource FlatButton}"/>
                                 </StackPanel>
                             </Grid>
                             <DataTemplate.Triggers>
@@ -323,6 +368,9 @@
                                                 <DataTrigger Binding="{Binding Status}" Value="Downloading">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
                                                 </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="Completed">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </Button.Style>
@@ -358,7 +406,8 @@
                                         </Style>
                                     </Button.Style>
                                 </Button>
-                                <Button Content="✕" ToolTip="Remove" Click="RowDelete_Click" Padding="6,2"/>
+                                <Button Content="✕" ToolTip="Remove" Click="RowDelete_Click" Padding="6,2"
+                                        Style="{StaticResource FlatButton}"/>
                             </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>

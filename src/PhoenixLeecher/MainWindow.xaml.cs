@@ -2,8 +2,11 @@ using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using PhoenixLeecher.Models;
 using PhoenixLeecher.Services;
@@ -20,6 +23,10 @@ public partial class MainWindow : Window
     private readonly LinkScanner _scanner = new();
     private DownloadEngine _engine = new(maxConcurrentFiles: 3);
     private CancellationTokenSource? _scanCts;
+    private CancellationTokenSource? _dlBatchCts; // Download All batch token; Pause All cancels it too
+    private bool _scanRunning;
+    private static string EntriesPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PhoenixLeecher", "entries.json");
     private readonly IProgress<EntryTick> _tickProgress;
     private readonly IProgress<ScanProgress> _scanProgress;
     private readonly DispatcherTimer _syncTimer = new();
@@ -37,7 +44,9 @@ public partial class MainWindow : Window
         _syncTimer.Start();
 
         StatusFolder.Text = DownloadEngine.DownloadRoot;
+        LoadEntries(); // restore list from previous session (no auto-download)
         UpdateCounts();
+        Closing += (_, _) => SaveEntries();
     }
 
     // ---------- rows sync (UI thread) ----------
@@ -90,6 +99,7 @@ public partial class MainWindow : Window
         if (t.Status is EntryStatus.Completed or EntryStatus.Failed or EntryStatus.Paused)
         {
             if (_dlCts.Remove(t.EntryId, out var cts)) cts.Dispose();
+            SaveEntries();
         }
         UpdateCounts();
     }
@@ -110,7 +120,7 @@ public partial class MainWindow : Window
             if (p.LinksFound >= p.Target || p.Note.Contains("exhaust"))
             {
                 _scanner.ClearState(UrlBox.Text.Trim());
-                ScanBtnLabel.Text = "Scan";
+                ScanBtnLabel.Text = "Whole scan";
             }
             else if (LinkScanner.IsBlogspot(UrlBox.Text.Trim()))
             {
@@ -135,28 +145,36 @@ public partial class MainWindow : Window
         SyncRows();
     }
 
-    private async void FindLinks_Click(object sender, RoutedEventArgs e)
+    // ---------- Page scan (immediate, page only) ----------
+    private async void PageScan_Click(object sender, RoutedEventArgs e)
     {
-        ScanBtn.IsEnabled = false;
+        if (_scanRunning) return;
+        SetScanRunning(true);
         try { await DoFindLinksAsync(); }
         catch (Exception ex)
         {
-            MessageBox.Show("Find links failed: " + ex.Message, "Phoenix Leecher",
+            MessageBox.Show("Page scan failed: " + ex.Message, "Phoenix Leecher",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
-        finally { ScanBtn.IsEnabled = true; }
+        finally { SaveEntries(); SetScanRunning(false); }
     }
 
-    // ---------- Scan (older posts, 50 links, resumable) ----------
-    private async void Scan_Click(object sender, RoutedEventArgs e)
+    // ---------- Whole scan (page + older posts, 50 links, resumable) ----------
+    private async void WholeScan_Click(object sender, RoutedEventArgs e)
     {
+        if (_scanRunning) return;
         string url = CurrentUrl; // capture on UI thread: UrlBox cannot be read from a worker thread
         if (string.IsNullOrWhiteSpace(url)) return;
-        ScanBtn.IsEnabled = false;
+        SetScanRunning(true);
         try
         {
-            // Page links first (immediate), then older-posts crawl.
-            await DoFindLinksAsync();
+            // Resume: crawl only from the saved cursor (no page re-scrape).
+            // Fresh: page links first (immediate), then older-posts crawl.
+            var saved = _scanner.LoadState(url);
+            bool isResume = saved != null && saved.LinksFound < LinkScanner.LinkTarget
+                && LinkScanner.IsBlogspot(url);
+            if (!isResume)
+                await DoFindLinksAsync();
 
             _scanCts = new CancellationTokenSource();
             StopBtn.IsEnabled = true;
@@ -172,10 +190,19 @@ public partial class MainWindow : Window
         finally
         {
             SyncRows();
+            SaveEntries();
             _scanCts?.Dispose();
             _scanCts = null;
-            ScanBtn.IsEnabled = true;
+            SetScanRunning(false);
         }
+    }
+
+    private void SetScanRunning(bool running)
+    {
+        _scanRunning = running;
+        PageScanBtn.IsEnabled = !running;
+        ScanBtn.IsEnabled = !running;
+        StopBtn.IsEnabled = false; // enabled only by Whole scan below
     }
 
     private void Stop_Click(object sender, RoutedEventArgs e)
@@ -215,20 +242,34 @@ public partial class MainWindow : Window
 
     private async void DownloadAll_Click(object sender, RoutedEventArgs e)
     {
+        // Cancel any previous batch, then run a new one. Pause All cancels this
+        // batch token too, so the loop stops instead of starting the next file.
+        _dlBatchCts?.Cancel();
+        _dlBatchCts?.Dispose();
+        var batchCts = new CancellationTokenSource();
+        _dlBatchCts = batchCts;
         var list = _rows.Where(x => x.Status is EntryStatus.Ready or EntryStatus.Paused or EntryStatus.Failed).ToList();
         await Task.Run(() =>
         {
             foreach (var entry in list)
             {
+                if (batchCts.Token.IsCancellationRequested) break;
                 Dispatcher.Invoke(() => StartDownload(entry));
                 // Wait until this entry leaves Downloading (sequential entries; files inside use 3 slots).
-                while (_dlCts.ContainsKey(entry.Id)) Thread.Sleep(500);
+                while (_dlCts.ContainsKey(entry.Id))
+                {
+                    if (batchCts.Token.IsCancellationRequested) break;
+                    Thread.Sleep(500);
+                }
             }
         });
+        if (_dlBatchCts == batchCts) { _dlBatchCts = null; batchCts.Dispose(); }
     }
 
     private void PauseAll_Click(object sender, RoutedEventArgs e)
     {
+        // Stop everything: the Download All batch loop plus every running file.
+        _dlBatchCts?.Cancel();
         foreach (var cts in _dlCts.Values.ToList()) cts.Cancel();
     }
 
@@ -238,17 +279,45 @@ public partial class MainWindow : Window
             StartDownload(entry);
     }
 
-    private void RowDelete_Click(object sender, RoutedEventArgs e)
+    private void RemoveEntry(LeecherEntry entry)
     {
-        if ((sender as FrameworkElement)?.DataContext is not LeecherEntry entry) return;
         if (_dlCts.TryGetValue(entry.Id, out var cts)) cts.Cancel();
         _entries.TryRemove(entry.NormalizedKey, out _);
-        SyncRows();
+        _byId.Remove(entry.Id);
+        _rows.Remove(entry);
+        _passwords.Remove(entry.Id);
+        SaveEntries();
+        UpdateCounts();
+    }
+
+    private void RowDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is LeecherEntry entry)
+            RemoveEntry(entry);
     }
 
     private void DeleteSelected_Click(object sender, RoutedEventArgs e)
     {
-        if (Grid.SelectedItem is LeecherEntry entry) RowDelete_Click(sender, e);
+        if (Grid.SelectedItem is LeecherEntry entry)
+            RemoveEntry(entry);
+    }
+
+    private void RemoveCompleted_Click(object sender, RoutedEventArgs e)
+    {
+        // List only: the downloaded files stay on disk.
+        foreach (var entry in _rows.Where(x => x.Status == EntryStatus.Completed).ToList())
+            RemoveEntry(entry);
+    }
+
+    private void Grid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        // Click on empty area (not on a row) -> clear the blue selection.
+        DependencyObject? dep = e.OriginalSource as DependencyObject;
+        while (dep != null && dep is not DataGridRow && dep is not DataGridCell
+               && dep is not System.Windows.Controls.Primitives.ScrollBar && dep != Grid)
+            dep = VisualTreeHelper.GetParent(dep);
+        if (dep == Grid || dep == null)
+            Grid.UnselectAll();
     }
 
     // ---------- password (session-only, never persisted) ----------
@@ -267,7 +336,12 @@ public partial class MainWindow : Window
         try
         {
             string? url = entry.PrimaryHost == "pcloud" ? entry.PCloudShareUrl : entry.MediaFireShareUrl;
-            if (url == null) return;
+            if (url == null)
+            {
+                entry.Status = EntryStatus.NeedsPassword;
+                entry.StatusText = "Password required";
+                return;
+            }
             var fresh = await Task.Run(() => _scanner.ResolveAndAddAsync(url, _entries, pw, CancellationToken.None));
             SyncRows();
             if (fresh.Status == EntryStatus.NeedsPassword)
@@ -329,6 +403,118 @@ public partial class MainWindow : Window
         new AboutWindow { Owner = this }.ShowDialog();
 
     private void Exit_Click(object sender, RoutedEventArgs e) => Close();
+
+    // ---------- entry list persistence (user spec: list survives app restart) ----------
+    private sealed class SavedEntry
+    {
+        public string NormalizedKey { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+        public bool IsFolder { get; set; }
+        public long TotalSize { get; set; }
+        public string PrimaryHost { get; set; } = "pcloud";
+        public string? PCloudShareUrl { get; set; }
+        public string? MediaFireShareUrl { get; set; }
+        public string Status { get; set; } = "Ready";
+        public List<RemoteFile> Files { get; set; } = new();
+    }
+
+    private void SaveEntries()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(EntriesPath)!);
+            var list = _entries.Values.Select(e => new SavedEntry
+            {
+                NormalizedKey = e.NormalizedKey,
+                DisplayName = e.DisplayName,
+                IsFolder = e.IsFolder,
+                TotalSize = e.TotalSize,
+                PrimaryHost = e.PrimaryHost,
+                PCloudShareUrl = e.PCloudShareUrl,
+                MediaFireShareUrl = e.MediaFireShareUrl,
+                Status = e.Status.ToString(),
+                Files = e.Files.ToList(),
+            }).ToList();
+            File.WriteAllText(EntriesPath, JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch { /* persistence must never break the app */ }
+    }
+
+    private void LoadEntries()
+    {
+        try
+        {
+            if (!File.Exists(EntriesPath)) return;
+            var list = JsonSerializer.Deserialize<List<SavedEntry>>(File.ReadAllText(EntriesPath));
+            if (list == null) return;
+            foreach (var s in list)
+            {
+                // Mid-resolve entries (no files yet) can't download; user re-scans.
+                // Dead / NeedsPassword are link states, kept without files.
+                if (s.Files.Count == 0 && s.Status != "Dead" && s.Status != "NeedsPassword")
+                    continue;
+                var entry = new LeecherEntry
+                {
+                    DisplayName = s.DisplayName,
+                    NormalizedKey = s.NormalizedKey,
+                    IsFolder = s.IsFolder,
+                    FileCount = s.Files.Count,
+                    TotalSize = s.TotalSize,
+                    PrimaryHost = s.PrimaryHost,
+                };
+                entry.PCloudShareUrl = s.PCloudShareUrl;
+                entry.MediaFireShareUrl = s.MediaFireShareUrl;
+                foreach (var f in s.Files) entry.Files.Add(f);
+                // An interrupted download becomes Paused (its .part stays on disk, resumes via Range).
+                // Passwords are session-only -> protected links re-prompt after restart.
+                entry.Status = s.Status switch
+                {
+                    "Downloading" => EntryStatus.Paused,
+                    "Paused" => EntryStatus.Paused,
+                    "Completed" => EntryStatus.Completed,
+                    "Failed" => EntryStatus.Failed,
+                    "Dead" => EntryStatus.Dead,
+                    "NeedsPassword" => EntryStatus.NeedsPassword,
+                    _ => EntryStatus.Ready,
+                };
+                entry.StatusText = entry.Status switch
+                {
+                    EntryStatus.Completed => "Completed",
+                    EntryStatus.Failed => "Failed",
+                    EntryStatus.Dead => "Link dead",
+                    EntryStatus.NeedsPassword => "Password required",
+                    EntryStatus.Paused => "Paused",
+                    _ => "Ready",
+                };
+                // Ground truth for progress is the bytes actually on disk, not the saved counter.
+                entry.DownloadedBytes = ExistingPartBytes(entry);
+                entry.Progress = entry.TotalSize > 0
+                    ? Math.Min(100, entry.DownloadedBytes * 100.0 / entry.TotalSize) : 0;
+                entry.RefreshDerived();
+                _entries[entry.NormalizedKey] = entry;
+            }
+            SyncRows();
+        }
+        catch { /* a corrupt file must never break startup */ }
+    }
+
+    private static long ExistingPartBytes(LeecherEntry entry)
+    {
+        try
+        {
+            string targetDir = DownloadEngine.DownloadRoot;
+            if (entry.IsFolder) targetDir = Path.Combine(targetDir, DownloadEngine.Sanitize(entry.DisplayName));
+            long sum = 0;
+            foreach (var f in entry.Files)
+            {
+                string basePath = Path.Combine(targetDir, DownloadEngine.Sanitize(f.Name));
+                if (File.Exists(basePath + ".part")) sum += new FileInfo(basePath + ".part").Length;
+                else if (File.Exists(basePath)) sum += new FileInfo(basePath).Length;
+            }
+            return sum;
+        }
+        catch { return 0; }
+    }
 
     protected override void OnClosed(EventArgs e)
     {

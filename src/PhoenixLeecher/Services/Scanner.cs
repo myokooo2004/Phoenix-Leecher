@@ -151,34 +151,48 @@ public sealed class LinkScanner
                 }, ct: ct);
 
                 var feed = doc.RootElement.GetProperty("feed");
-                if (feed.TryGetProperty("openSearch$totalResults", out var total))
-                    prog.TotalPosts = total.GetProperty("$t").GetInt32();
+                // Blogger's openSearch$totalResults.$t is a JSON STRING ("7057"), not a number.
+                if (feed.TryGetProperty("openSearch$totalResults", out var total) &&
+                    total.TryGetProperty("$t", out var tVal))
+                {
+                    int parsed = 0;
+                    if (tVal.ValueKind == JsonValueKind.Number)
+                        tVal.TryGetInt32(out parsed);
+                    else if (tVal.ValueKind == JsonValueKind.String)
+                        int.TryParse(tVal.GetString(), out parsed);
+                    prog.TotalPosts = parsed;
+                }
 
                 if (!feed.TryGetProperty("entry", out var postEntries) || postEntries.GetArrayLength() == 0)
                     break; // exhausted
 
+                int postsDoneInPage = 0;
                 foreach (var e in postEntries.EnumerateArray())
                 {
                     ct.ThrowIfCancellationRequested();
                     string content = e.TryGetProperty("content", out var c) ? c.GetProperty("$t").GetString() ?? "" : "";
+                    int linksThisPost = 0;
                     foreach (var link in ExtractLinks(content))
                     {
-                        if (prog.LinksFound >= LinkTarget) break;
+                        if (prog.LinksFound + linksThisPost >= LinkTarget) break;
+                        ct.ThrowIfCancellationRequested();
                         await ResolveAndAddAsync(link, entries, null, ct);
-                        prog.LinksFound++;
-                        progress.Report(prog);
+                        linksThisPost++;
                     }
+                    // Commit per post: exact resume cursor, no double-count if stopped mid-post.
+                    prog.LinksFound += linksThisPost;
                     prog.PostsDone++;
+                    postsDoneInPage++;
+                    state.StartIndex = startIndex + postsDoneInPage;
+                    state.LinksFound = prog.LinksFound;
+                    state.PostsDone = prog.PostsDone;
+                    state.SavedAt = DateTime.Now;
+                    SaveState(state); // resumable across app restart, after every post
+                    progress.Report(prog);
                     if (prog.LinksFound >= LinkTarget) break;
                 }
 
-                startIndex += 150;
-                state.StartIndex = startIndex;
-                state.LinksFound = prog.LinksFound;
-                state.PostsDone = prog.PostsDone;
-                state.SavedAt = DateTime.Now;
-                SaveState(state); // resumable across app restart
-                progress.Report(prog);
+                startIndex = state.StartIndex; // follow the exact cursor (page may be partial)
             }
         }
         finally
@@ -247,9 +261,12 @@ public sealed class LinkScanner
         entries.TryRemove("pw:" + MyanmarText.NormalizeKey(link), out _);
 
         string key = (resolved.IsFolder ? "F:" : "f:") + MyanmarText.NormalizeKey(resolved.InsideName);
-        if (!entries.TryGetValue(key, out var entry))
+        // Atomic check-and-add: GetOrAdd guarantees a single stored instance per key even when
+        // two scans resolve the same inside-name concurrently (previously both created an instance,
+        // the dict kept one but the visible list showed both as duplicates).
+        var entry = entries.GetOrAdd(key, _ =>
         {
-            entry = new LeecherEntry
+            var e = new LeecherEntry
             {
                 DisplayName = resolved.InsideName,
                 NormalizedKey = key,
@@ -260,14 +277,15 @@ public sealed class LinkScanner
                 Status = Models.EntryStatus.Ready,
                 StatusText = "Ready",
             };
-            if (resolved.Host == "pcloud") entry.PCloudShareUrl = link; else entry.MediaFireShareUrl = link;
-            foreach (var f in resolved.Files) entry.Files.Add(f);
-            entries[key] = entry;
-        }
-        else
+            if (resolved.Host == "pcloud") e.PCloudShareUrl = link; else e.MediaFireShareUrl = link;
+            foreach (var f in resolved.Files) e.Files.Add(f);
+            return e;
+        });
+        // Dedup merge (idempotent for the creator thread): pCloud preferred as primary,
+        // other host kept as backup. "Skip MediaFire" != discard: backup enables
+        // auto-fallback if pCloud breaks (user spec).
+        lock (entry)
         {
-            // Dedup: pCloud preferred as primary; other host kept as backup.
-            // "Skip MediaFire" != discard: backup enables auto-fallback if pCloud breaks (user spec).
             if (resolved.Host == "pcloud")
             {
                 entry.PCloudShareUrl = link;
