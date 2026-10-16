@@ -447,8 +447,6 @@
             <!-- Empty state -->
             <StackPanel x:Name="EmptyState" VerticalAlignment="Center" HorizontalAlignment="Center"
                         Margin="0,0,0,40">
-                <Image Source="Assets/app.ico" Width="88" Height="88" Margin="0,0,0,20"
-                       RenderOptions.BitmapScalingMode="HighQuality" Opacity="0.92"/>
                 <TextBlock Text="Phoenix Leecher (pCloud / MediaFire)" FontSize="17" FontWeight="SemiBold"
                            HorizontalAlignment="Center" Foreground="{DynamicResource TextBrush}"/>
                 <TextBlock Text="Paste a website link above — the app automatically finds pCloud and MediaFire links on the page and lists them here for download."
