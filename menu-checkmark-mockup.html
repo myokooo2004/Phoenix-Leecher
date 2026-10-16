@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Menu Checkmark Mockup</title>
+<style>
+  body { font-family: "Segoe UI", sans-serif; background: #1a1a1a; color: #e0e0e0; padding: 20px; margin: 0; }
+  h2 { font-size: 16px; margin: 0 0 8px 0; }
+  .desc { font-size: 13px; color: #aaa; margin-bottom: 12px; }
+  .row { display: flex; gap: 30px; flex-wrap: wrap; }
+  .option { background: #2d2d2d; border-radius: 8px; padding: 16px; min-width: 260px; }
+  .menu { background: #333; border: 1px solid #555; border-radius: 6px; padding: 4px 0; width: 220px; }
+  .item { display: flex; align-items: center; padding: 8px 12px; font-size: 14px; }
+  .item:hover { background: #444; }
+  .check { width: 24px; text-align: center; color: #4da6ff; font-weight: bold; }
+  .check.empty { color: transparent; }
+  .note { font-size: 12px; color: #888; margin-top: 10px; }
+  .pro { color: #7fdb7f; } .con { color: #ff8888; }
+</style>
+</head>
+<body>
+
+<h2>Light/Dark Menu — ဘယ်လိုညီလဲ</h2>
+
+<div class="row">
+  <!-- Option A: with checkmark -->
+  <div class="option">
+    <h2>Option A: အမှန်ခြစ် ပါမယ် (အခု v1.0.8)</h2>
+    <div class="desc">IsCheckable=True — checkmark နေရာ အမြဲဖယ်, စာသား ညီတယ်</div>
+    <div class="menu">
+      <div class="item"><span class="check">✓</span> Light mode</div>
+      <div class="item"><span class="check empty">✓</span> Dark mode</div>
+    </div>
+    <div class="note">
+      <span class="pro">✅ စာသား တညီတည်း</span><br>
+      <span class="pro">✅ ဘယ် theme active လဲ မြင်ရတယ်</span><br>
+      <span class="con">❌ Checkmark နေရာ နည်းနည်း ယူတယ်</span>
+    </div>
+  </div>
+
+  <!-- Option B: without checkmark -->
+  <div class="option">
+    <h2>Option B: အမှန်ခြစ် ဖြုတ်မယ်</h2>
+    <div class="desc">Checkmark မရှိ — စာသား သူ့ဟာသူ ညီတယ်</div>
+    <div class="menu">
+      <div class="item"><span class="check empty">✓</span> Light mode</div>
+      <div class="item"><span class="check empty">✓</span> Dark mode</div>
+    </div>
+    <div class="note">
+      <span class="pro">✅ စာသား တညီတည်း</span><br>
+      <span class="con">❌ ဘယ် theme active လဲ menu ကနေ မသိရဘူး</span><br>
+      <span class="con">❌ Toolbar button ကိုပါ ပြင်ရမယ်</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

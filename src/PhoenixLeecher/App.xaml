@@ -134,7 +134,7 @@
                                     <TextBlock x:Name="CheckMark" Grid.Column="0" Text="&#xE73E;"
                                                FontFamily="Segoe MDL2 Assets" FontSize="10"
                                                Margin="10,0,2,0" VerticalAlignment="Center"
-                                               Visibility="Collapsed"
+                                               Visibility="Hidden"
                                                Foreground="{DynamicResource AccentBrush}"/>
                                     <ContentPresenter Grid.Column="1" ContentSource="Header"
                                                       Margin="6,7,12,7" RecognizesAccessKey="True"

@@ -38,8 +38,8 @@
                 </MenuItem>
             </MenuItem>
             <MenuItem Header="View">
-                <MenuItem Header="Light mode" Click="ThemeLight_Click" x:Name="MenuLight" IsChecked="True" IsCheckable="True"/>
-                <MenuItem Header="Dark mode" Click="ThemeDark_Click" x:Name="MenuDark" IsCheckable="True"/>
+                <MenuItem Header="Light mode" Click="ThemeLight_Click" x:Name="MenuLight" IsChecked="True"/>
+                <MenuItem Header="Dark mode" Click="ThemeDark_Click" x:Name="MenuDark"/>
             </MenuItem>
             <MenuItem Header="Help">
                 <MenuItem Header="About Phoenix Leecher" Click="About_Click"/>
