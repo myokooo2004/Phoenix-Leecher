@@ -233,10 +233,14 @@ public sealed class LinkScanner
     {
         // Fast path: exact same URL already known -> skip HTTP resolve entirely.
         // (Different URLs for the same album still go through resolve+name dedup below.)
+        // Normalize: trim trailing '/', compare case-insensitive.
+        var normLink = link.TrimEnd('/');
         foreach (var kv in entries.Values)
         {
-            if (string.Equals(kv.PCloudShareUrl, link, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(kv.MediaFireShareUrl, link, StringComparison.OrdinalIgnoreCase))
+            var p = kv.PCloudShareUrl?.TrimEnd('/');
+            var m = kv.MediaFireShareUrl?.TrimEnd('/');
+            if (string.Equals(p, normLink, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(m, normLink, StringComparison.OrdinalIgnoreCase))
                 return (kv, false);
         }
 
