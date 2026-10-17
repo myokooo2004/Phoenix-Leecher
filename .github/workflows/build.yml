@@ -18,12 +18,11 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Publish single-file exe
-        run: >
-          dotnet publish src/PhoenixLeecher/PhoenixLeecher.csproj
-          -c Release -r win-x64 --self-contained true
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -o publish
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}".TrimStart('v')
+          if ([string]::IsNullOrWhiteSpace($ver)) { $ver = "0.0.0-dev" }
+          dotnet publish src/PhoenixLeecher/PhoenixLeecher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:Version=$ver -o publish
 
       - name: Build installer
         shell: pwsh
