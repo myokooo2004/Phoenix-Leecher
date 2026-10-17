@@ -66,7 +66,9 @@ public partial class MainWindow : Window
             if (!_byId.ContainsKey(kv.Value.Id))
             {
                 _byId[kv.Value.Id] = kv.Value;
-                _rows.Add(kv.Value);
+                // User spec 2026-10-17: don't show Completed in the visible list.
+                if (kv.Value.Status != EntryStatus.Completed)
+                    _rows.Add(kv.Value);
             }
         }
         // removals
@@ -448,6 +450,11 @@ public partial class MainWindow : Window
     {
         if (App.ThemeName == "Light") ApplyDark(); else ApplyLight();
     }
+    private void LogBtn_Click(object sender, RoutedEventArgs e)
+    {
+        var w = new LogWindow { Owner = this };
+        w.ShowDialog();
+    }
     private void ThemeLight_Click(object sender, RoutedEventArgs e) => ApplyLight();
     private void ThemeDark_Click(object sender, RoutedEventArgs e) => ApplyDark();
     private void ApplyLight()
@@ -517,6 +524,27 @@ public partial class MainWindow : Window
                 Status = e.Status.ToString(),
                 Files = e.Files.ToList(),
             }).ToList();
+            // Also persist hidden Completed (in _entries but not in _rows, per user spec
+            // 2026-10-17) so dedup survives restart and Whole scan doesn't re-add them.
+            var visibleIds = new HashSet<string>(_rows.Select(e => e.Id));
+            foreach (var kv in _entries.Values)
+            {
+                if (kv.Status == EntryStatus.Completed && !visibleIds.Contains(kv.Id))
+                {
+                    list.Add(new SavedEntry
+                    {
+                        NormalizedKey = kv.NormalizedKey,
+                        DisplayName = kv.DisplayName,
+                        IsFolder = kv.IsFolder,
+                        TotalSize = kv.TotalSize,
+                        PrimaryHost = kv.PrimaryHost,
+                        PCloudShareUrl = kv.PCloudShareUrl,
+                        MediaFireShareUrl = kv.MediaFireShareUrl,
+                        Status = kv.Status.ToString(),
+                        Files = kv.Files.ToList(),
+                    });
+                }
+            }
             File.WriteAllText(EntriesPath, JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch { /* persistence must never break the app */ }
@@ -576,13 +604,15 @@ public partial class MainWindow : Window
                 entry.RefreshDerived();
                 rebuilt.Add(entry);
             }
-            // Completed first (stable), then the rest — matches the pre-close layout (user spec 2026-10-16).
-            // Add directly in order (bypasses SyncRows' dict ordering).
-            foreach (var entry in rebuilt.OrderByDescending(e => e.Status == EntryStatus.Completed))
+            // User spec 2026-10-17: Completed entries stay in _entries/_byId for dedup
+            // (Whole scan won't re-add them), but are NOT shown in _rows. This avoids
+            // the Download All crash triggered by Completed entries in the visible list.
+            foreach (var entry in rebuilt)
             {
                 _entries[entry.NormalizedKey] = entry;
                 _byId[entry.Id] = entry;
-                _rows.Add(entry);
+                if (entry.Status != EntryStatus.Completed)
+                    _rows.Add(entry);
             }
             RenumberRows();
             UpdateCounts();

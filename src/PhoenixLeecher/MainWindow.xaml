@@ -123,6 +123,13 @@
                         <TextBlock Text="Dark" VerticalAlignment="Center" x:Name="ThemeBtnLabel"/>
                     </StackPanel>
                 </Button>
+                <Button Click="LogBtn_Click" Margin="2" Padding="8,4" x:Name="LogBtn"
+                        Style="{StaticResource FlatButton}" ToolTip="View log">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="Log" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
             </ToolBar>
         </ToolBarTray>
 
