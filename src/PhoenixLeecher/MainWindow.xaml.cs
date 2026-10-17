@@ -376,7 +376,10 @@ public partial class MainWindow : Window
     private void RemoveEntry(LeecherEntry entry)
     {
         if (_dlCts.TryGetValue(entry.Id, out var cts)) cts.Cancel();
-        _entries.TryRemove(entry.NormalizedKey, out _);
+        // Completed: keep in _entries for dedup (never reappear in scans),
+        // remove from UI (_rows/_byId) only. Non-completed: remove fully.
+        if (entry.Status != EntryStatus.Completed)
+            _entries.TryRemove(entry.NormalizedKey, out _);
         _byId.Remove(entry.Id);
         _rows.Remove(entry);
         _passwords.Remove(entry.Id);
