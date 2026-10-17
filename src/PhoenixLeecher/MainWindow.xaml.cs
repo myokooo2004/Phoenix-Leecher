@@ -37,6 +37,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+        Title = $"Phoenix Leecher v{v?.Major}.{v?.Minor}.{v?.Build}";
         Grid.ItemsSource = _rows;
 
         _tickProgress = new Progress<EntryTick>(ApplyTick);
