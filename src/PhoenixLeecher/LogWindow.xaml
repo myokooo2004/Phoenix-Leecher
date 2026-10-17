@@ -11,7 +11,7 @@
             <Button Content="Close" Click="Close_Click" Padding="16,6"
                     Style="{StaticResource FlatButton}"/>
         </StackPanel>
-        <TextBox x:Name="LogText" IsReadOnly="True" TextWrapping="No"
+        <TextBox x:Name="LogText" IsReadOnly="True" TextWrapping="NoWrap"
                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                  FontFamily="Consolas" FontSize="12"
                  Background="{DynamicResource PanelBackground}"

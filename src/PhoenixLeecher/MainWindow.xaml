@@ -19,17 +19,17 @@
     <DockPanel>
         <!-- Menu -->
         <Menu DockPanel.Dock="Top" Background="{DynamicResource PanelBackground}" Foreground="{DynamicResource TextBrush}">
-            <MenuItem Header="File">
+            <MenuItem Header="File" ScrollViewer.VerticalScrollBarVisibility="Disabled">
                 <MenuItem Header="Open download folder" Click="OpenFolder_Click"/>
                 <Separator/>
                 <MenuItem Header="Exit" Click="Exit_Click"/>
             </MenuItem>
-            <MenuItem Header="Downloads">
+            <MenuItem Header="Downloads" ScrollViewer.VerticalScrollBarVisibility="Disabled">
                 <MenuItem Header="Download all" Click="DownloadAll_Click"/>
                 <MenuItem Header="Pause all" Click="PauseAll_Click"/>
                 <MenuItem Header="Resume all" Click="ResumeAll_Click"/>
             </MenuItem>
-            <MenuItem Header="Options">
+            <MenuItem Header="Options" ScrollViewer.VerticalScrollBarVisibility="Disabled">
                 <MenuItem Header="Max concurrent files">
                     <MenuItem Header="1" Click="Concurrency_Click" Tag="1"/>
                     <MenuItem Header="2" Click="Concurrency_Click" Tag="2"/>
@@ -37,11 +37,12 @@
                     <MenuItem Header="5" Click="Concurrency_Click" Tag="5"/>
                 </MenuItem>
             </MenuItem>
-            <MenuItem Header="View">
+            <MenuItem Header="View" ScrollViewer.VerticalScrollBarVisibility="Disabled">
                 <MenuItem Header="Light mode" Click="ThemeLight_Click" x:Name="MenuLight" IsChecked="True"/>
                 <MenuItem Header="Dark mode" Click="ThemeDark_Click" x:Name="MenuDark"/>
             </MenuItem>
-            <MenuItem Header="Help">
+            <MenuItem Header="Help" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                <MenuItem Header="View Log" Click="LogBtn_Click"/>
                 <MenuItem Header="About Phoenix Leecher" Click="About_Click"/>
             </MenuItem>
         </Menu>
@@ -121,13 +122,6 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE708;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
                         <TextBlock Text="Dark" VerticalAlignment="Center" x:Name="ThemeBtnLabel"/>
-                    </StackPanel>
-                </Button>
-                <Button Click="LogBtn_Click" Margin="2" Padding="8,4" x:Name="LogBtn"
-                        Style="{StaticResource FlatButton}" ToolTip="View log">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                        <TextBlock Text="Log" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
             </ToolBar>

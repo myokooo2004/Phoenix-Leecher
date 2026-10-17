@@ -231,6 +231,15 @@ public sealed class LinkScanner
     public async Task<(LeecherEntry Entry, bool IsNew)> ResolveAndAddAsync(
         string link, ConcurrentDictionary<string, LeecherEntry> entries, string? password, CancellationToken ct)
     {
+        // Fast path: exact same URL already known -> skip HTTP resolve entirely.
+        // (Different URLs for the same album still go through resolve+name dedup below.)
+        foreach (var kv in entries.Values)
+        {
+            if (string.Equals(kv.PCloudShareUrl, link, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(kv.MediaFireShareUrl, link, StringComparison.OrdinalIgnoreCase))
+                return (kv, false);
+        }
+
         ResolvedShare resolved;
         try
         {
