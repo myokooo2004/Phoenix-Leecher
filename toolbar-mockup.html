@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toolbar Mockup - Remove completed always visible</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; background: #1e1e1e; color: #ddd; padding: 20px; }
+  h2 { color: #4fd1c5; font-size: 16px; margin-top: 30px; }
+  p { font-size: 13px; color: #aaa; max-width: 700px; }
+  .window { background: #2d2d2d; border: 1px solid #444; border-radius: 6px; margin: 15px 0; overflow: hidden; }
+  .titlebar { background: #1a1a1a; padding: 8px 12px; font-size: 13px; display: flex; justify-content: space-between; }
+  .toolbar { display: flex; align-items: center; padding: 6px 8px; gap: 2px; background: #2d2d2d; border-bottom: 1px solid #444; white-space: nowrap; }
+  .btn { background: #3a3a3a; border: 1px solid #555; color: #ddd; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: default; display: flex; align-items: center; gap: 6px; }
+  .btn.never { border-color: #4fd1c5; box-shadow: 0 0 4px rgba(79,209,197,0.4); }
+  .sep { width: 1px; background: #555; margin: 4px 6px; align-self: stretch; }
+  .badge { font-size: 10px; background: #4fd1c5; color: #000; padding: 2px 6px; border-radius: 3px; margin-left: 4px; font-weight: bold; }
+  .narrow { width: 700px; }
+  .clipped { overflow: hidden; }
+  .note { font-size: 12px; color: #888; margin-top: 8px; }
+  .ok { color: #6f6; } .bad { color: #f66; }
+</style>
+</head>
+<body>
+<h1>🐝 Toolbar Mockup — "Remove completed" always visible</h1>
+
+<h2>1. Full width (1080px+) — normal</h2>
+<div class="window">
+  <div class="titlebar"><span>Phoenix Leecher v1.3.3</span><span>— □ X</span></div>
+  <div class="toolbar">
+    <span class="btn">🔍 Page scan</span>
+    <span class="btn">▶ Whole scan</span>
+    <span class="btn">⏹ Stop</span>
+    <span class="sep"></span>
+    <span class="btn">⬇ Download All</span>
+    <span class="btn">⏸ Pause All</span>
+    <span class="sep"></span>
+    <span class="btn">📁 Folder</span>
+    <span class="btn never">🗑 Remove completed<span class="badge">NEVER</span></span>
+    <span class="btn">✕ Delete</span>
+    <span class="sep"></span>
+    <span class="btn">🌙 Dark</span>
+  </div>
+  <p style="padding:10px">All buttons visible. "Remove completed" has OverflowMode="Never".</p>
+</div>
+
+<h2>2. Narrow window WITHOUT MinWidth — <span class="bad">clipped (bad)</span></h2>
+<div class="window narrow">
+  <div class="titlebar"><span>Phoenix Leecher v1.3.3</span><span>— □ X</span></div>
+  <div class="toolbar clipped">
+    <span class="btn">🔍 Page scan</span>
+    <span class="btn">▶ Whole scan</span>
+    <span class="btn">⏹ Stop</span>
+    <span class="sep"></span>
+    <span class="btn">⬇ Download All</span>
+    <span class="btn">⏸ Pause All</span>
+    <span class="sep"></span>
+    <span class="btn">📁 Folder</span>
+    <span class="btn never">🗑 Remove completed<span class="badge">NEVER</span></span>
+    <span class="btn">✕ Delete</span>
+    <span class="sep"></span>
+    <span class="btn">🌙 Dark</span>
+  </div>
+  <p class="note"><span class="bad">✕</span> Window 700px — buttons clipped on the right ("Dark" cut off). OverflowMode="Never" prevents going to overflow, but no space = clipped.</p>
+</div>
+
+<h2>3. Narrow window WITH MinWidth="1080" — <span class="ok">fixed (good)</span></h2>
+<div class="window">
+  <div class="titlebar"><span>Phoenix Leecher v1.3.3</span><span>— □ X</span></div>
+  <div class="toolbar">
+    <span class="btn">🔍 Page scan</span>
+    <span class="btn">▶ Whole scan</span>
+    <span class="btn">⏹ Stop</span>
+    <span class="sep"></span>
+    <span class="btn">⬇ Download All</span>
+    <span class="btn">⏸ Pause All</span>
+    <span class="sep"></span>
+    <span class="btn">📁 Folder</span>
+    <span class="btn never">🗑 Remove completed<span class="badge">NEVER</span></span>
+    <span class="btn">✕ Delete</span>
+    <span class="sep"></span>
+    <span class="btn">🌙 Dark</span>
+  </div>
+  <p class="note"><span class="ok">✓</span> MinWidth="1080" — user <b>cannot</b> resize narrower. All buttons always fit. No clipping, no overflow.</p>
+</div>
+
+<h2>Summary</h2>
+<p>
+  <b>Change 1:</b> <code>ToolBar.OverflowMode="Never"</code> on "Remove completed" → never hides in overflow.<br>
+  <b>Change 2:</b> <code>MinWidth="1080"</code> on MainWindow → window can't shrink enough to clip.<br>
+  <b>Result:</b> "Remove completed" text always visible, exactly like full-screen.
+</p>
+</body>
+</html>

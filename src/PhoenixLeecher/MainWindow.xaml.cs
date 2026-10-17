@@ -24,6 +24,7 @@ public partial class MainWindow : Window
     private readonly List<string> _bothFailedNames = new(); // guarded by lock(_bothFailedNames)
     private readonly Dictionary<string, string> _passwords = new();
     private readonly LinkScanner _scanner = new();
+    private int _lastScanSavedCount; // throttle SaveEntries during Whole scan
     private DownloadEngine _engine = new(maxConcurrentFiles: 3);
     private CancellationTokenSource? _scanCts;
     private CancellationTokenSource? _dlBatchCts; // Download All batch token; Pause All cancels it too
@@ -135,6 +136,12 @@ public partial class MainWindow : Window
     {
         ScanBar.Maximum = p.Target;
         ScanBar.Value = p.AlbumsFound;
+        // Persist scan finds promptly (every 10) so a crash/kill doesn't lose dedup memory.
+        if (p.Running && p.AlbumsFound >= _lastScanSavedCount + 10)
+        {
+            _lastScanSavedCount = p.AlbumsFound;
+            SaveEntries();
+        }
         ScanText.Text = p.Running
             ? $"Scanning older posts… {p.AlbumsFound}/{p.Target} albums" +
               (p.TotalPosts > 0 ? $" · post {p.PostsDone}/{p.TotalPosts}" : $" · {p.PostsDone} posts")
@@ -185,7 +192,7 @@ public partial class MainWindow : Window
             foreach (var link in links)
             {
                 var (_, isNew) = await _scanner.ResolveAndAddAsync(link, _entries, null, CancellationToken.None);
-                if (isNew) newAlbums++;
+                if (isNew) { newAlbums++; SaveEntries(); }
             }
         });
         SyncRows();
@@ -197,6 +204,7 @@ public partial class MainWindow : Window
     {
         if (_scanRunning) return;
         SetScanRunning(true);
+        _lastScanSavedCount = 0;
         try { await DoFindLinksAsync(); }
         catch (Exception ex)
         {
@@ -213,6 +221,7 @@ public partial class MainWindow : Window
         string url = CurrentUrl; // capture on UI thread: UrlBox cannot be read from a worker thread
         if (string.IsNullOrWhiteSpace(url)) return;
         SetScanRunning(true);
+        _lastScanSavedCount = 0;
         try
         {
             // Run model (user spec 2026-10-16):
